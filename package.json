@@ -1,0 +1,96 @@
+{
+  "name": "@untemps/vocal",
+  "version": "0.0.0",
+    "description": "Class wrapped around the SpeechRecognition Web API",
+  "repository": "git@github.com:untemps/vocal.git",
+  "keywords": [
+    "Web Speech API",
+    "SpeechRecognition",
+    "speech",
+    "speech-to-text",
+    "javascript"
+  ],
+  "author": "Vincent Le Badezet <v.lebadezet@untemps.net>",
+  "license": "MIT",
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.es.js",
+  "file": [ "dist" ],
+  "devDependencies": {
+    "@babel/cli": "^7.10.1",
+    "@babel/core": "^7.10.2",
+    "@babel/plugin-proposal-class-properties": "^7.8.3",
+    "@babel/plugin-transform-runtime": "^7.10.1",
+    "@babel/preset-env": "^7.9.6",
+    "@rollup/plugin-babel": "^5.0.2",
+    "@rollup/plugin-commonjs": "^12.0.0",
+    "@rollup/plugin-node-resolve": "^8.0.0",
+    "@semantic-release/changelog": "^5.0.1",
+    "@semantic-release/git": "^9.0.0",
+    "@semantic-release/github": "^7.0.7",
+    "@testing-library/jest-dom": "^5.11.9",
+    "babel-jest": "^26.0.1",
+    "cross-env": "^7.0.2",
+    "husky": "^4.2.5",
+    "jest": "^26.0.1",
+    "prettier": "^2.0.5",
+    "rollup": "^2.12.0",
+    "rollup-plugin-filesize": "^9.0.0",
+    "rollup-plugin-terser": "^6.1.0",
+    "rollup-plugin-visualizer": "^4.0.4",
+    "semantic-release": "^17.0.7"
+  },
+  "dependencies": {
+    "@untemps/user-permissions-utils": "^1.0.1"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "yarn test:ci && yarn prettier"
+    }
+  },
+  "jest": {
+    "coverageDirectory": "./coverage/",
+    "collectCoverage": true,
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest/jest.setup.js"
+    ],
+    "restoreMocks": true
+  },
+  "release": {
+    "branches": [
+      "main"
+    ],
+    "plugins": [
+      [
+        "@semantic-release/commit-analyzer",
+        {
+          "releaseRules": [
+            {
+              "type": "chore",
+              "scope": "bundle",
+              "release": "patch"
+            }
+          ]
+        }
+      ],
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/changelog",
+      "@semantic-release/npm",
+      "@semantic-release/git",
+      "@semantic-release/github"
+    ]
+  },
+  "scripts": {
+    "dev": "cd dev && yarn && yarn start",
+    "test": "jest -u --watch",
+    "test:ci": "CI=true jest -u -b --coverage",
+    "build": " rm -rf dist && yarn build:cjs && yarn build:es && yarn build:umd",
+    "build:cjs": "cross-env NODE_ENV=production BABEL_ENV=cjs rollup -c",
+    "build:es": "cross-env NODE_ENV=production BABEL_ENV=es rollup -c",
+    "build:umd": "cross-env NODE_ENV=production BABEL_ENV=umd rollup -c",
+    "prettier": "prettier \"*/**/*.js\" --ignore-path ./.prettierignore --write"
+  }
+}
