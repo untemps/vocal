@@ -109,7 +109,7 @@ class Vocal {
 					}
 				}
 
-				!!callback && callback.apply(this, [...additionalArgs, event])
+				!!callback && callback.apply(this, [event, ...additionalArgs])
 			}
 			this._instance.addEventListener(eventType, handler)
 
