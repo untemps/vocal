@@ -1,7 +1,7 @@
 {
   "name": "@untemps/vocal",
-  "version": "0.0.0",
-    "description": "Class wrapped around the SpeechRecognition Web API",
+  "version": "1.0.0",
+  "description": "Class wrapped around the SpeechRecognition Web API",
   "repository": "git@github.com:untemps/vocal.git",
   "keywords": [
     "Web Speech API",
@@ -18,7 +18,9 @@
   },
   "main": "dist/index.js",
   "module": "dist/index.es.js",
-  "file": [ "dist" ],
+  "file": [
+    "dist"
+  ],
   "devDependencies": {
     "@babel/cli": "^7.10.1",
     "@babel/core": "^7.10.2",
