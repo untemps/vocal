@@ -25,7 +25,7 @@ class Vocal {
 	}
 
 	static get isSupported() {
-		return !!Vocal._resolveSpeechRecognition()
+		return !!Vocal._resolveSpeechRecognition() && !!Vocal._resolveSpeechGrammarList()
 	}
 
 	static set isSupported(_) {
