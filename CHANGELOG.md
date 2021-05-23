@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/untemps/vocal/compare/v1.1.1...v1.2.0) (2021-05-23)
+
+
+### Features
+
+* Remove SpeechGrammarList check from isSupported getter and add extra check in constructor ([#4](https://github.com/untemps/vocal/issues/4)) ([39f8b80](https://github.com/untemps/vocal/commit/39f8b80a018b0eeaef9b027e0dd763df5166b425))
+
 ## [1.1.1](https://github.com/untemps/vocal/compare/v1.1.0...v1.1.1) (2021-05-21)
 
 
