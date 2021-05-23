@@ -46,7 +46,7 @@
     "semantic-release": "^17.0.7"
   },
   "dependencies": {
-    "@untemps/user-permissions-utils": "^1.0.1"
+    "@untemps/user-permissions-utils": "^1.0.3"
   },
   "husky": {
     "hooks": {
