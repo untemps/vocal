@@ -72,7 +72,6 @@
           "releaseRules": [
             {
               "type": "chore",
-              "scope": "bundle",
               "release": "patch"
             }
           ]
