@@ -25,7 +25,7 @@ class Vocal {
 	}
 
 	static get isSupported() {
-		return !!Vocal._resolveSpeechRecognition() && !!Vocal._resolveSpeechGrammarList()
+		return !!Vocal._resolveSpeechRecognition()
 	}
 
 	static set isSupported(_) {
@@ -36,7 +36,11 @@ class Vocal {
 	_listeners = null
 
 	constructor(options) {
-		const SpeechRecognition = Vocal._resolveSpeechRecognition() || {}
+		const SpeechRecognition = Vocal._resolveSpeechRecognition()
+		if (!SpeechRecognition) {
+			throw new DOMException('SpeechRecognition not supported', 'NOT_SUPPORTED_ERR')
+		}
+
 		this._instance = new SpeechRecognition()
 		this._listeners = {}
 
@@ -45,8 +49,10 @@ class Vocal {
 			...(options || {}),
 		}).forEach(([key, value]) => {
 			if (key === 'grammars' && !value) {
-				const SpeechGrammarList = Vocal._resolveSpeechGrammarList() || {}
-				value = new SpeechGrammarList()
+				const SpeechGrammarList = Vocal._resolveSpeechGrammarList()
+				if (!!SpeechGrammarList) {
+					value = new SpeechGrammarList()
+				}
 			}
 			this._instance[key] = value
 		})
