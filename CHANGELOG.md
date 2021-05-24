@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/untemps/vocal/compare/v1.2.1...v1.3.0) (2021-05-24)
+
+
+### Features
+
+* Improve isSupported getter by checking navigator.permissions and navigator.mediaDevices support ([#11](https://github.com/untemps/vocal/issues/11)) ([ddb67ac](https://github.com/untemps/vocal/commit/ddb67ac039743f0c658bb68a787bf6c4b21ae0f2))
+
 ## [1.2.1](https://github.com/untemps/vocal/compare/v1.2.0...v1.2.1) (2021-05-23)
 
 # [1.2.0](https://github.com/untemps/vocal/compare/v1.1.1...v1.2.0) (2021-05-23)
