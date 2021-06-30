@@ -12,10 +12,35 @@ Class wrapped around the SpeechRecognition Web API
 yarn add @untemps/vocal
 ```
 
-## Usage
+## Basic Usage
 
-Import `Vocal`:
+Import `Vocal` to a file.
 
 ```javascript
-import { Vocal } from '@untemps/vocal'
+import { Vocal } from '@untemps/vocal';
+
+// Check if it is supported
+if (!Vocal.isSupported()) {
+  throw "Microphone API Not supported";
+  return;
+}
+
+// Create Instance
+const vocal = new Vocal();
+
+// Start Recording
+vocal.start();
+
+// Stop/Pause recording
+vocal.stop();
+
+// Abort recording entirely
+vocal.abort();
+
+// Clean up and remove the Vocal instance
+vocal.cleanup();
 ```
+
+## Options
+
+(todo)
