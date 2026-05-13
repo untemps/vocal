@@ -12,8 +12,8 @@ describe('Vocal', () => {
 	})
 
 	it('throws error when getUserMediaStream returns false value', async () => {
-		const onError = jest.fn()
-		jest.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(null)
+		const onError = vi.fn()
+		vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(null)
 		const wrapper = new Vocal()
 		wrapper.addEventListener('error', onError)
 		await wrapper.start()
@@ -21,9 +21,9 @@ describe('Vocal', () => {
 	})
 
 	it('throws error when getUserMediaStream throws', async () => {
-		const onError = jest.fn()
+		const onError = vi.fn()
 		const error = new Error('foo')
-		jest.spyOn(userPermissionsUtils, 'getUserMediaStream').mockImplementationOnce(() => {
+		vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockImplementationOnce(() => {
 			throw error
 		})
 		const wrapper = new Vocal()
