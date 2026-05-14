@@ -1,4 +1,3 @@
-import 'regenerator-runtime/runtime'
 import { vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 
