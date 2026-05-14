@@ -4,6 +4,7 @@ Class wrapped around the SpeechRecognition Web API
 
 ![npm](https://img.shields.io/npm/v/@untemps/vocal?style=for-the-badge)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/untemps/vocal/publish.yml?style=for-the-badge)
+![Codecov](https://img.shields.io/codecov/c/github/untemps/vocal?style=for-the-badge)
 
 ## Installation
 
