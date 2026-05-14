@@ -1,26 +1,31 @@
-name: "publish"
+name: 'Publish package'
 on:
   push:
     branches:
       - main
+      - beta
+permissions:
+  contents: write
+  id-token: write
+  pull-requests: write
+  issues: write
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
         with:
-          node-version: 'lts/*'
-          registry-url: 'https://registry.npmjs.org'
-      - run: yarn install
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'yarn'
+      - run: yarn install --frozen-lockfile
       - run: yarn test:ci
       - run: yarn build
       - run: npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v5
         with:
-          file: coverage/lcov.info
+          files: coverage/lcov.info
