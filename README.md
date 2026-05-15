@@ -20,9 +20,8 @@ Import `Vocal` to a file.
 import { Vocal } from '@untemps/vocal'
 
 // Check whether SpeechRecognition, Permissions and MediaDevices interfaces are supported
-if (!Vocal.isSupported()) {
-  throw "Vocal is not supported"
-  return;
+if (!Vocal.isSupported) {
+  throw new Error('Vocal is not supported')
 }
 
 // Create a Vocal instance (see below for all available option properties)
@@ -35,7 +34,7 @@ const vocal = new Vocal(options)
 vocal.addEventListener('speechstart', (event) => console.log('Vocal starts recording'))
 vocal.addEventListener('speechend', (event) => console.log('Vocal stops recording'))
 vocal.addEventListener('result', (event, result) => console.log('Vocal catches a result'))
-vocal.addEventListener('error', (error) => throw error)
+vocal.addEventListener('error', (error) => { throw error })
 
 // Start recording
 vocal.start()
