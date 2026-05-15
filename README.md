@@ -36,9 +36,8 @@ vocal.addEventListener('speechend', (event) => console.log('Vocal stops recordin
 vocal.addEventListener('result', (event, transcript, alternatives) => console.log('Vocal catches a result:', transcript, alternatives))
 vocal.addEventListener('error', (error) => { throw error })
 
-const controller = new AbortController()
-vocal.start({ signal: controller.signal })
-controller.abort()
+// Start recording
+vocal.start()
 
 // Stop/Pause recording
 vocal.stop()
@@ -88,3 +87,20 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | isSupported | boolean                   | Whether the current environment supports the SpeechRecognition Web API (static)                                      |
 | instance    | SpeechRecognition \| null | The underlying SpeechRecognition instance                                                                            |
 | isRecording | boolean                   | Whether recognition is currently active — `true` after `start()`, `false` after `stop()`, `abort()`, or `end` event |
+
+## Methods
+
+### `start({ signal? })`
+
+| Parameter | Type          | Default     | Description                                                                   |
+| --------- | ------------- | ----------- | ----------------------------------------------------------------------------- |
+| signal    | AbortSignal   | `undefined` | Cancels the in-flight microphone permission request when the signal is aborted |
+
+```js
+const controller = new AbortController()
+vocal.start({ signal: controller.signal })
+
+// Cancel the permission request at any later point
+controller.abort()
+```
+
