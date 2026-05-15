@@ -155,19 +155,14 @@ describe('Vocal', () => {
 			expect(wrapper.isRecording).toBe(false)
 		})
 
-		it('returns false after stop', async () => {
+		it.each([
+			['stop', (w: Vocal) => w.stop()],
+			['abort', (w: Vocal) => w.abort()],
+		] as const)('returns false after %s', async (_, action) => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const wrapper = new Vocal()
 			await wrapper.start()
-			wrapper.stop()
-			expect(wrapper.isRecording).toBe(false)
-		})
-
-		it('returns false after abort', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal()
-			await wrapper.start()
-			wrapper.abort()
+			action(wrapper)
 			expect(wrapper.isRecording).toBe(false)
 		})
 
