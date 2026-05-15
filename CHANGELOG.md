@@ -1,3 +1,10 @@
+# [2.0.0-beta.3](https://github.com/untemps/vocal/compare/v2.0.0-beta.2...v2.0.0-beta.3) (2026-05-15)
+
+
+### Features
+
+* Expose AbortSignal support in start() ([#42](https://github.com/untemps/vocal/issues/42)) ([a7f638b](https://github.com/untemps/vocal/commit/a7f638b541347a4377bce1f43a47aa5290ea2852))
+
 # [2.0.0-beta.2](https://github.com/untemps/vocal/compare/v2.0.0-beta.1...v2.0.0-beta.2) (2026-05-15)
 
 
