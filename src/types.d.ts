@@ -5,7 +5,6 @@ declare interface SpeechRecognition extends EventTarget {
 	interimResults: boolean
 	lang: string
 	maxAlternatives: number
-	serviceURI: string
 	start(): void
 	stop(): void
 	abort(): void
