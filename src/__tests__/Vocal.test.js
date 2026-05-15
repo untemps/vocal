@@ -98,7 +98,7 @@ describe('Vocal', () => {
 	describe('instance', () => {
 		it('returns the internal SpeechRecognition instance', () => {
 			const wrapper = new Vocal()
-			expect(wrapper.instance).toBeDefined()
+			expect(wrapper.instance).not.toBeNull()
 		})
 
 		it('throws when setting instance directly', () => {
@@ -232,6 +232,7 @@ describe('Vocal', () => {
 			const wrapper = new Vocal()
 			wrapper.addEventListener(Vocal.eventTypes.START, onStart1)
 			wrapper.addEventListener(Vocal.eventTypes.START, onStart2)
+			expect(wrapper.instance.removeEventListener).toHaveBeenCalledTimes(1)
 			wrapper.instance.start()
 			expect(onStart1).not.toHaveBeenCalled()
 			expect(onStart2).toHaveBeenCalled()
