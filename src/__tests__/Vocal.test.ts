@@ -126,6 +126,62 @@ describe('Vocal', () => {
 		})
 	})
 
+	describe('isRecording', () => {
+		it('returns false by default', () => {
+			const wrapper = new Vocal()
+			expect(wrapper.isRecording).toBe(false)
+		})
+
+		it('returns true after a successful start', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal()
+			await wrapper.start()
+			expect(wrapper.isRecording).toBe(true)
+		})
+
+		it('remains false when start fails due to null stream', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockNull)
+			const wrapper = new Vocal()
+			wrapper.addEventListener(Vocal.eventTypes.ERROR, vi.fn())
+			await wrapper.start()
+			expect(wrapper.isRecording).toBe(false)
+		})
+
+		it('remains false when start fails due to getUserMediaStream throwing', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockRejectedValueOnce(new Error('mic denied'))
+			const wrapper = new Vocal()
+			wrapper.addEventListener(Vocal.eventTypes.ERROR, vi.fn())
+			await wrapper.start()
+			expect(wrapper.isRecording).toBe(false)
+		})
+
+		it.each([
+			['stop', (w: Vocal) => w.stop()],
+			['abort', (w: Vocal) => w.abort()],
+		] as const)('returns false after %s', async (_, action) => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal()
+			await wrapper.start()
+			action(wrapper)
+			expect(wrapper.isRecording).toBe(false)
+		})
+
+		it('returns false when end event fires', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal()
+			await wrapper.start()
+			mockInstance(wrapper)
+				.addEventListener.mock.calls.filter(([type]: string[]) => type === 'end')
+				.forEach(([, handler]: [string, EventListener]) => handler(new Event('end')))
+			expect(wrapper.isRecording).toBe(false)
+		})
+
+		it('throws when setting isRecording directly', () => {
+			const wrapper = new Vocal()
+			expect(() => (wrapper.isRecording = true)).toThrow()
+		})
+	})
+
 	describe('start', () => {
 		it('calls instance.start when getUserMediaStream returns a stream', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)

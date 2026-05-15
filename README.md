@@ -86,3 +86,11 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | speechend   | Fired when speech recognized by the recognition service has stopped being detected        |
 | speechstart | Fired when sound recognized by the recognition service as speech has been detected        |
 | start       | fired when the recognition service has begun listening to incoming audio                  |
+
+## Getters
+
+| Getter      | Type                      | Description                                                                                                          |
+| ----------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| isSupported | boolean                   | Whether the current environment supports the SpeechRecognition Web API (static)                                      |
+| instance    | SpeechRecognition \| null | The underlying SpeechRecognition instance                                                                            |
+| isRecording | boolean                   | Whether recognition is currently active — `true` after `start()`, `false` after `stop()`, `abort()`, or `end` event |
