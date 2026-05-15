@@ -53,6 +53,7 @@ class Vocal {
 
 	private _instance: SpeechRecognition | null = null
 	private _listeners: Record<string, EventHandler> | null = null
+	private _isRecording: boolean = false
 
 	constructor(options?: VocalOptions) {
 		const SpeechRecognition = Vocal._resolveSpeechRecognition()
@@ -77,6 +78,10 @@ class Vocal {
 		} else {
 			instance.grammars = grammars
 		}
+
+		this._instance.addEventListener('end', () => {
+			this._isRecording = false
+		})
 	}
 
 	get instance(): SpeechRecognition | null {
@@ -87,6 +92,14 @@ class Vocal {
 		throw new Error('You cannot set instance directly.')
 	}
 
+	get isRecording(): boolean {
+		return this._isRecording
+	}
+
+	set isRecording(_: boolean) {
+		throw new Error('You cannot set isRecording directly.')
+	}
+
 	async start(): Promise<this> {
 		if (this._instance) {
 			try {
@@ -95,6 +108,7 @@ class Vocal {
 					throw new Error('Unable to retrieve the stream from media device')
 				}
 				this._instance.start()
+				this._isRecording = true
 			} catch (error) {
 				const errorHandler = this._listeners?.error
 				if (errorHandler) {
@@ -109,6 +123,7 @@ class Vocal {
 	stop(): this {
 		if (this._instance) {
 			this._instance.stop()
+			this._isRecording = false
 		}
 
 		return this
@@ -117,6 +132,7 @@ class Vocal {
 	abort(): this {
 		if (this._instance) {
 			this._instance.abort()
+			this._isRecording = false
 		}
 
 		return this
