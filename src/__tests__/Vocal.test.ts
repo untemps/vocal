@@ -230,6 +230,31 @@ describe('Vocal', () => {
 			const wrapper = new Vocal()
 			expect(await wrapper.start()).toBe(wrapper)
 		})
+
+		it('does not call error handler when getUserMediaStream is aborted', async () => {
+			const onError = vi.fn()
+			const abortError = Object.assign(new Error('Aborted'), { name: 'AbortError' })
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockRejectedValueOnce(abortError)
+			const wrapper = new Vocal()
+			wrapper.addEventListener(Vocal.eventTypes.ERROR, onError)
+			await wrapper.start()
+			expect(onError).not.toHaveBeenCalled()
+		})
+
+		it('forwards signal to getUserMediaStream when provided', async () => {
+			const spy = vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const signal = new AbortController().signal
+			const wrapper = new Vocal()
+			await wrapper.start({ signal })
+			expect(spy).toHaveBeenCalledWith('microphone', { audio: true }, { signal })
+		})
+
+		it('calls getUserMediaStream without signal when not provided', async () => {
+			const spy = vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal()
+			await wrapper.start()
+			expect(spy).toHaveBeenCalledWith('microphone', { audio: true }, { signal: undefined })
+		})
 	})
 
 	describe('stop', () => {
