@@ -33,7 +33,8 @@
 		".": {
 			"import": "./dist/index.es.js",
 			"require": "./dist/index.js",
-			"types": "./dist/index.d.ts"
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.es.js"
 		}
 	},
 	"devDependencies": {
