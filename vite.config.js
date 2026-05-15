@@ -31,6 +31,12 @@ export default defineConfig({
 			reporter: ['text', 'lcov'],
 			reportsDirectory: './coverage',
 			exclude: ['vitest.setup.ts'],
+			thresholds: {
+				statements: 100,
+				branches: 100,
+				functions: 100,
+				lines: 100,
+			},
 		},
 	},
 })
