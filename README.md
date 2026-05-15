@@ -33,7 +33,7 @@ const vocal = new Vocal(options)
 // Subscribe to Vocal instance events (see below for all available events)
 vocal.addEventListener('speechstart', (event) => console.log('Vocal starts recording'))
 vocal.addEventListener('speechend', (event) => console.log('Vocal stops recording'))
-vocal.addEventListener('result', (event, result) => console.log('Vocal catches a result'))
+vocal.addEventListener('result', (event, transcript, alternatives) => console.log('Vocal catches a result:', transcript, alternatives))
 vocal.addEventListener('error', (error) => { throw error })
 
 // Start recording
