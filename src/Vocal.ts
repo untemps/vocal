@@ -100,10 +100,14 @@ class Vocal {
 		throw new Error('You cannot set isRecording directly.')
 	}
 
-	async start(): Promise<this> {
+	async start({ signal }: { signal?: AbortSignal } = {}): Promise<this> {
 		if (this._instance) {
 			try {
-				const stream = (await getUserMediaStream('microphone', { audio: true })) as MediaStream | null
+				const stream = (await getUserMediaStream(
+					'microphone',
+					{ audio: true },
+					{ signal }
+				)) as MediaStream | null
 				if (!stream) {
 					throw new Error('Unable to retrieve the stream from media device')
 				}

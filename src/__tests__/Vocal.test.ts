@@ -230,6 +230,21 @@ describe('Vocal', () => {
 			const wrapper = new Vocal()
 			expect(await wrapper.start()).toBe(wrapper)
 		})
+
+		it('forwards signal to getUserMediaStream when provided', async () => {
+			const spy = vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const signal = new AbortController().signal
+			const wrapper = new Vocal()
+			await wrapper.start({ signal })
+			expect(spy).toHaveBeenCalledWith('microphone', { audio: true }, { signal })
+		})
+
+		it('calls getUserMediaStream without signal when not provided', async () => {
+			const spy = vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal()
+			await wrapper.start()
+			expect(spy).toHaveBeenCalledWith('microphone', { audio: true }, { signal: undefined })
+		})
 	})
 
 	describe('stop', () => {
