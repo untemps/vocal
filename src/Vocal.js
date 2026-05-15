@@ -1,4 +1,8 @@
-import { isNavigatorPermissionsSupported, isNavigatorMediaDevicesSupported, getUserMediaStream } from '@untemps/user-permissions-utils'
+import {
+	isNavigatorPermissionsSupported,
+	isNavigatorMediaDevicesSupported,
+	getUserMediaStream,
+} from '@untemps/user-permissions-utils'
 
 class Vocal {
 	static defaultOptions = {
@@ -25,7 +29,11 @@ class Vocal {
 	}
 
 	static get isSupported() {
-		return !!Vocal._resolveSpeechRecognition() && !!isNavigatorPermissionsSupported() && !!isNavigatorMediaDevicesSupported()
+		return (
+			!!Vocal._resolveSpeechRecognition() &&
+			!!isNavigatorPermissionsSupported() &&
+			!!isNavigatorMediaDevicesSupported()
+		)
 	}
 
 	static set isSupported(_) {
