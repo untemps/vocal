@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite'
+import dts from 'vite-plugin-dts'
 
 export default defineConfig({
+	plugins: [dts({ include: ['src'], exclude: ['src/__tests__'] })],
 	build: {
 		lib: {
-			entry: 'src/index.js',
+			entry: 'src/index.ts',
 			name: 'Vocal',
 			formats: ['es', 'cjs', 'umd'],
 			fileName: (format) => ({ es: 'index.es.js', umd: 'index.umd.js', cjs: 'index.js' })[format],
@@ -21,12 +23,14 @@ export default defineConfig({
 	test: {
 		globals: true,
 		environment: 'jsdom',
-		setupFiles: ['./vitest.setup.js'],
+		setupFiles: ['./vitest.setup.ts'],
+		typecheck: { tsconfig: './tsconfig.test.json' },
 		restoreMocks: true,
 		coverage: {
 			provider: 'v8',
 			reporter: ['text', 'lcov'],
 			reportsDirectory: './coverage',
+			exclude: ['vitest.setup.ts'],
 		},
 	},
 })
