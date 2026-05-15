@@ -135,7 +135,8 @@ class Vocal {
 				if (eventType === Vocal.eventTypes.RESULT) {
 					const speechEvent = event as SpeechRecognitionEvent
 					if (speechEvent.results?.length > 0) {
-						additionalArgs.push(speechEvent.results[0][0].transcript)
+						const alternatives = Array.from(speechEvent.results[0]).map((alt) => alt.transcript)
+						additionalArgs.push(alternatives[0], alternatives)
 					}
 				}
 
