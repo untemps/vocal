@@ -84,8 +84,8 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 
 ## Getters
 
-| Getter        | Type    | Description                                                                                   |
-| ------------- | ------- | --------------------------------------------------------------------------------------------- |
-| isSupported   | boolean | Whether the current environment supports the SpeechRecognition Web API (static)               |
-| instance      | SpeechRecognition \| null | The underlying SpeechRecognition instance                                   |
-| isRecording   | boolean | Whether recognition is currently active — `true` after `start()`, `false` after `stop()`, `abort()`, or `end` event |
+| Getter      | Type                      | Description                                                                                                          |
+| ----------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| isSupported | boolean                   | Whether the current environment supports the SpeechRecognition Web API (static)                                      |
+| instance    | SpeechRecognition \| null | The underlying SpeechRecognition instance                                                                            |
+| isRecording | boolean                   | Whether recognition is currently active — `true` after `start()`, `false` after `stop()`, `abort()`, or `end` event |
