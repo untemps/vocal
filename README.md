@@ -53,7 +53,7 @@ vocal.cleanup()
 ## Options
 
 Options described below are those from the `SpeechRecognition` Web API.  
-Please this [this section](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition#properties) for more information.
+Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition#properties) for more information.
 
 | Option           | Type              | Default    | Description                                                                                                       |
 | ---------------- | ----------------- | ---------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -67,7 +67,7 @@ Please this [this section](https://developer.mozilla.org/en-US/docs/Web/API/Spee
 ## Events
 
 Events described below are those from the `SpeechRecognition` Web API.  
-Please this [this section](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition#events) for more information.
+Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition#events) for more information.
 
 | Event       | Description                                                                               |
 | ----------- | ----------------------------------------------------------------------------------------- |
