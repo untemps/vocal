@@ -1,3 +1,17 @@
+# [2.0.0-beta.1](https://github.com/untemps/vocal/compare/v1.3.4-beta.1...v2.0.0-beta.1) (2026-05-15)
+
+
+### Code Refactoring
+
+* Remove deprecated serviceURI option ([#33](https://github.com/untemps/vocal/issues/33)) ([67e233a](https://github.com/untemps/vocal/commit/67e233ade674861cbf2627ac9eb2dbe2150f4ca8))
+
+
+### BREAKING CHANGES
+
+* VocalOptions.serviceURI removed. Passing it to Vocal() is now a TS error.
+Runtime behavior unchanged — browsers already ignored this option.
+Migration: remove serviceURI from options passed to new Vocal().
+
 ## [1.3.4-beta.1](https://github.com/untemps/vocal/compare/v1.3.3...v1.3.4-beta.1) (2026-05-15)
 
 ## [1.3.3](https://github.com/untemps/vocal/compare/v1.3.2...v1.3.3) (2026-05-15)
