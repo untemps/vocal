@@ -10,7 +10,6 @@ export interface VocalOptions {
 	continuous?: boolean
 	interimResults?: boolean
 	maxAlternatives?: number
-	serviceURI?: string | null
 }
 
 export type EventType = (typeof Vocal.eventTypes)[keyof typeof Vocal.eventTypes]
@@ -24,7 +23,6 @@ class Vocal {
 		continuous: false,
 		interimResults: false,
 		maxAlternatives: 1,
-		serviceURI: null,
 	}
 
 	static eventTypes = {
