@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/untemps/vocal/compare/v1.3.1...v1.3.2) (2026-05-15)
+
+
+### Bug Fixes
+
+* Expose all RESULT alternatives as third callback argument ([#35](https://github.com/untemps/vocal/issues/35)) ([87760ea](https://github.com/untemps/vocal/commit/87760eac36f05083de8d84a9bb606ec47dd395e8))
+
 ## [1.3.1](https://github.com/untemps/vocal/compare/v1.3.0...v1.3.1) (2026-05-15)
 
 # [1.3.0](https://github.com/untemps/vocal/compare/v1.2.1...v1.3.0) (2021-05-24)
