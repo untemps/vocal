@@ -15,7 +15,7 @@ export interface VocalOptions {
 
 export type EventType = (typeof Vocal.eventTypes)[keyof typeof Vocal.eventTypes]
 
-type EventHandler = (event: Event, ...args: unknown[]) => void
+type EventHandler = (event: Event | unknown, ...args: unknown[]) => void
 
 class Vocal {
 	static defaultOptions: Required<VocalOptions> = {
@@ -65,20 +65,19 @@ class Vocal {
 		this._instance = new SpeechRecognition()
 		this._listeners = {}
 
-		const resolvedOptions: Required<VocalOptions> = {
+		const { grammars, ...rest }: Required<VocalOptions> = {
 			...Vocal.defaultOptions,
 			...(options ?? {}),
 		}
 
-		for (const [key, value] of Object.entries(resolvedOptions) as [keyof VocalOptions, unknown][]) {
-			let resolvedValue = value
-			if (key === 'grammars' && !resolvedValue) {
-				const SpeechGrammarList = Vocal._resolveSpeechGrammarList()
-				if (SpeechGrammarList) {
-					resolvedValue = new SpeechGrammarList()
-				}
-			}
-			;(this._instance as unknown as Record<string, unknown>)[key] = resolvedValue
+		const instance = this._instance as unknown as Record<string, unknown>
+		Object.assign(instance, rest)
+
+		if (!grammars) {
+			const SpeechGrammarList = Vocal._resolveSpeechGrammarList()
+			instance.grammars = SpeechGrammarList ? new SpeechGrammarList() : null
+		} else {
+			instance.grammars = grammars
 		}
 	}
 
@@ -101,7 +100,7 @@ class Vocal {
 			} catch (error) {
 				const errorHandler = this._listeners?.error
 				if (errorHandler) {
-					errorHandler(error as Event)
+					errorHandler(error)
 				}
 			}
 		}
@@ -151,9 +150,11 @@ class Vocal {
 	}
 
 	removeEventListener(eventType: string): this {
-		const handler = this._listeners![eventType]
-		this._instance!.removeEventListener(eventType, handler as EventListener)
-		delete this._listeners![eventType]
+		if (this._instance && this._listeners) {
+			const handler = this._listeners[eventType]
+			this._instance.removeEventListener(eventType, handler as EventListener)
+			delete this._listeners[eventType]
+		}
 
 		return this
 	}

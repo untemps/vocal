@@ -1,4 +1,4 @@
-import { vi } from 'vitest'
+import { vi, type Mock } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 
 Object.defineProperty(global, 'navigator', {
@@ -9,26 +9,25 @@ Object.defineProperty(global, 'navigator', {
 
 interface MockPermissionStatus {
 	state: string
-	addEventListener: ReturnType<typeof vi.fn>
+	addEventListener: Mock
 }
 
 interface MockPermissions {
-	query: ReturnType<typeof vi.fn>
+	query: Mock
 }
 
 interface MockMediaDevices {
-	getUserMedia: ReturnType<typeof vi.fn>
+	getUserMedia: Mock
 }
 
 interface MockSpeechRecognitionInstance {
-	addEventListener: ReturnType<typeof vi.fn>
-	removeEventListener: ReturnType<typeof vi.fn>
-	dispatchEvent: ReturnType<typeof vi.fn>
-	start: ReturnType<typeof vi.fn>
-	stop: ReturnType<typeof vi.fn>
-	abort: ReturnType<typeof vi.fn>
-	say: ReturnType<typeof vi.fn>
-	[key: string]: unknown
+	addEventListener: Mock
+	removeEventListener: Mock
+	dispatchEvent: Mock
+	start: Mock
+	stop: Mock
+	abort: Mock
+	say: Mock
 }
 
 declare global {

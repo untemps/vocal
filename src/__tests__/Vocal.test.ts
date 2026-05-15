@@ -285,6 +285,12 @@ describe('Vocal', () => {
 			wrapper.addEventListener(Vocal.eventTypes.START, vi.fn())
 			expect(wrapper.removeEventListener(Vocal.eventTypes.START)).toBe(wrapper)
 		})
+
+		it('does nothing when instance is null', () => {
+			const wrapper = new Vocal()
+			wrapper.cleanup()
+			expect(() => wrapper.removeEventListener(Vocal.eventTypes.START)).not.toThrow()
+		})
 	})
 
 	describe('cleanup', () => {
