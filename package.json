@@ -110,8 +110,8 @@
 		"test:ci": "vitest run --coverage",
 		"build": "vite build",
 		"typecheck": "tsc --noEmit",
-		"lint": "eslint src/",
+		"lint": "eslint src/ vitest.setup.ts",
 		"prepare": "husky",
-		"prettier": "prettier \"*/**/*.js\" --ignore-path ./.prettierignore --write"
+		"prettier": "prettier \"src/**/*.{ts,js}\" vitest.setup.ts --ignore-path ./.prettierignore --write"
 	}
 }
