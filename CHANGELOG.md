@@ -1,3 +1,10 @@
+# [2.0.0-beta.2](https://github.com/untemps/vocal/compare/v2.0.0-beta.1...v2.0.0-beta.2) (2026-05-15)
+
+
+### Features
+
+* Add isRecording getter to track recognition state ([#41](https://github.com/untemps/vocal/issues/41)) ([7abcc56](https://github.com/untemps/vocal/commit/7abcc566f40aa95af88078d2a7632ef8633cad5a))
+
 # [2.0.0-beta.1](https://github.com/untemps/vocal/compare/v1.3.4-beta.1...v2.0.0-beta.1) (2026-05-15)
 
 
