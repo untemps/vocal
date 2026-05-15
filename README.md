@@ -36,11 +36,8 @@ vocal.addEventListener('speechend', (event) => console.log('Vocal stops recordin
 vocal.addEventListener('result', (event, transcript, alternatives) => console.log('Vocal catches a result:', transcript, alternatives))
 vocal.addEventListener('error', (error) => { throw error })
 
-// Start recording (optionally pass an AbortSignal to cancel the microphone permission request)
 const controller = new AbortController()
 vocal.start({ signal: controller.signal })
-
-// Cancel in-flight permission request
 controller.abort()
 
 // Stop/Pause recording

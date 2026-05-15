@@ -231,6 +231,16 @@ describe('Vocal', () => {
 			expect(await wrapper.start()).toBe(wrapper)
 		})
 
+		it('does not call error handler when getUserMediaStream is aborted', async () => {
+			const onError = vi.fn()
+			const abortError = Object.assign(new Error('Aborted'), { name: 'AbortError' })
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockRejectedValueOnce(abortError)
+			const wrapper = new Vocal()
+			wrapper.addEventListener(Vocal.eventTypes.ERROR, onError)
+			await wrapper.start()
+			expect(onError).not.toHaveBeenCalled()
+		})
+
 		it('forwards signal to getUserMediaStream when provided', async () => {
 			const spy = vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const signal = new AbortController().signal

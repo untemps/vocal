@@ -114,6 +114,7 @@ class Vocal {
 				this._instance.start()
 				this._isRecording = true
 			} catch (error) {
+				if (error instanceof Error && error.name === 'AbortError') return this
 				const errorHandler = this._listeners?.error
 				if (errorHandler) {
 					errorHandler(error)
