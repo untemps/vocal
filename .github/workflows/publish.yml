@@ -27,6 +27,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - uses: codecov/codecov-action@v6
-        if: always()
         with:
           files: coverage/lcov.info
