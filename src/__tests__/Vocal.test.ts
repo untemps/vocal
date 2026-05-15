@@ -235,15 +235,7 @@ describe('Vocal', () => {
 			const onResult = vi.fn()
 			const wrapper = new Vocal()
 			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-			const [, handler] = (mockInstance(wrapper).addEventListener.mock.calls as string[][]).find(
-				([type]) => type === Vocal.eventTypes.RESULT
-			)!
-			const event = Object.assign(new Event(Vocal.eventTypes.RESULT), {
-				results: [
-					[{ transcript: 'hello' }, { transcript: 'helo' }, { transcript: 'hell' }],
-				],
-			})
-			;(handler as unknown as (e: Event) => void)(event)
+			mockInstance(wrapper).say('hello', ['hello', 'helo', 'hell'])
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello', ['hello', 'helo', 'hell'])
 		})
 

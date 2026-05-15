@@ -90,15 +90,16 @@ global.SpeechRecognition = vi.fn(function () {
 		abort: vi.fn(function () {
 			handlers.end?.()
 		}),
-		say: vi.fn(function (sentence: string) {
+		say: vi.fn(function (sentence: string, alternatives?: string[]) {
 			handlers.speechstart?.()
 
+			const alts = alternatives ?? [sentence]
 			const resultEvent = new Event('result') as Event & {
 				resultIndex: number
-				results: [{ transcript: string }][]
+				results: { transcript: string }[][]
 			}
 			resultEvent.resultIndex = 0
-			resultEvent.results = [[{ transcript: sentence }]]
+			resultEvent.results = [alts.map((t) => ({ transcript: t }))]
 			if (sentence) {
 				handlers.result?.(resultEvent)
 			} else {
