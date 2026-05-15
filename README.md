@@ -33,7 +33,7 @@ const vocal = new Vocal(options)
 // Subscribe to Vocal instance events (see below for all available events)
 vocal.addEventListener('speechstart', (event) => console.log('Vocal starts recording'))
 vocal.addEventListener('speechend', (event) => console.log('Vocal stops recording'))
-vocal.addEventListener('result', (event, result) => console.log('Vocal catches a result'))
+vocal.addEventListener('result', (event, transcript, alternatives) => console.log('Vocal catches a result:', transcript, alternatives))
 vocal.addEventListener('error', (error) => { throw error })
 
 // Start recording
@@ -75,7 +75,7 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | end         | Fired when the recognition service has disconnected                                       |
 | error       | Fired when a recognition error occurs                                                     |
 | nomatch     | Fired when the recognition service returns a final result with no significant recognition |
-| result      | Fired when the recognition service returns a result                                       |
+| result      | Fired when the recognition service returns a result — callback receives `(event, transcript: string, alternatives: string[])` where `transcript === alternatives[0]` |
 | soundend    | Fired when any sound — recognisable or not — has stopped being detected                   |
 | soundstart  | Fired when any sound — recognisable or not — has been detected                            |
 | speechend   | Fired when speech recognized by the recognition service has stopped being detected        |

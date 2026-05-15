@@ -223,12 +223,20 @@ describe('Vocal', () => {
 			expect(onStart).toHaveBeenCalled()
 		})
 
-		it('passes transcript as extra argument for RESULT events', () => {
+		it('passes transcript and alternatives array for RESULT events', () => {
 			const onResult = vi.fn()
 			const wrapper = new Vocal()
 			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
 			mockInstance(wrapper).say('hello world')
-			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello world')
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello world', ['hello world'])
+		})
+
+		it('passes all alternatives when multiple are available', () => {
+			const onResult = vi.fn()
+			const wrapper = new Vocal()
+			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
+			mockInstance(wrapper).say('hello', ['hello', 'helo', 'hell'])
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello', ['hello', 'helo', 'hell'])
 		})
 
 		it('does not pass transcript for RESULT events with empty results', () => {
