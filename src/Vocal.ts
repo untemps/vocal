@@ -151,8 +151,14 @@ class Vocal {
 				if (eventType === Vocal.eventTypes.RESULT) {
 					const speechEvent = event as SpeechRecognitionEvent
 					if (speechEvent.results?.length > 0) {
-						const alternatives = Array.from(speechEvent.results[0], (alt) => alt.transcript)
-						additionalArgs.push(alternatives[0], alternatives)
+						const alternatives = Array.from(speechEvent.results[0])
+						const bestAlternative = alternatives.reduce((a, b) =>
+							(b.confidence ?? 0) > (a.confidence ?? 0) ? b : a
+						)
+						additionalArgs.push(
+							bestAlternative.transcript,
+							alternatives.map((a) => a.transcript)
+						)
 					}
 				}
 
