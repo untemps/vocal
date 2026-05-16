@@ -109,3 +109,19 @@ vocal.start({ signal: controller.signal })
 controller.abort()
 ```
 
+### `once(eventType, callback)`
+
+Registers a one-shot listener that automatically unregisters itself after firing once.
+
+| Parameter | Type                                              | Description                                |
+| --------- | ------------------------------------------------- | ------------------------------------------ |
+| eventType | `EventType`                                       | One of the valid event type strings        |
+| callback  | `ResultEventHandler \| ErrorEventHandler \| GenericEventHandler` | Callback invoked once when the event fires |
+
+```js
+vocal.once('result', (event, bestAlternative, alternatives) => {
+    console.log(bestAlternative)
+    vocal.stop()
+})
+```
+
