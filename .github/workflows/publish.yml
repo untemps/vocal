@@ -21,6 +21,8 @@ jobs:
           node-version: '24'
           cache: 'yarn'
       - run: yarn install --frozen-lockfile
+      - run: yarn lint
+      - run: yarn typecheck
       - run: yarn test:ci
       - run: yarn build
       - run: npx semantic-release
