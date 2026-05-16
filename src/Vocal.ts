@@ -195,7 +195,7 @@ class Vocal {
 		return Object.values(Vocal.eventTypes).includes(eventType as EventType)
 	}
 
-	static _resolveSpeechRecognition(): typeof SpeechRecognition | undefined {
+	private static _resolveSpeechRecognition(): typeof SpeechRecognition | undefined {
 		if (typeof window === 'undefined') return undefined
 		return (
 			window.SpeechRecognition ??
@@ -205,7 +205,7 @@ class Vocal {
 		)
 	}
 
-	static _resolveSpeechGrammarList(): typeof SpeechGrammarList | undefined {
+	private static _resolveSpeechGrammarList(): typeof SpeechGrammarList | undefined {
 		return (
 			window.SpeechGrammarList ??
 			window.webkitSpeechGrammarList ??
