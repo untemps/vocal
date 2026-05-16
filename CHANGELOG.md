@@ -1,3 +1,10 @@
+# [2.0.0-beta.16](https://github.com/untemps/vocal/compare/v2.0.0-beta.15...v2.0.0-beta.16) (2026-05-16)
+
+
+### Features
+
+* Add once() method for one-shot event listener registration ([#76](https://github.com/untemps/vocal/issues/76)) ([8179643](https://github.com/untemps/vocal/commit/8179643f159e3ccf690f7ac2d8bd101568c6e5b3))
+
 # [2.0.0-beta.15](https://github.com/untemps/vocal/compare/v2.0.0-beta.14...v2.0.0-beta.15) (2026-05-16)
 
 
