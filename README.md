@@ -36,8 +36,12 @@ vocal.addEventListener('speechend', (event) => console.log('Vocal stops recordin
 vocal.addEventListener('result', (event, transcript, alternatives) => console.log('Vocal catches a result:', transcript, alternatives))
 vocal.addEventListener('error', (error) => { throw error })
 
-// Start recording
-vocal.start()
+// Start recording — rejects on error
+try {
+  await vocal.start()
+} catch (error) {
+  console.error(error)
+}
 
 // Stop/Pause recording
 vocal.stop()
