@@ -196,6 +196,7 @@ class Vocal {
 	}
 
 	static _resolveSpeechRecognition(): typeof SpeechRecognition | undefined {
+		if (typeof window === 'undefined') return undefined
 		return (
 			window.SpeechRecognition ??
 			window.webkitSpeechRecognition ??
