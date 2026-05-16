@@ -457,7 +457,12 @@ describe('Vocal', () => {
 			wrapper.addEventListener(Vocal.eventTypes.START, vi.fn())
 			wrapper.addEventListener(Vocal.eventTypes.END, vi.fn())
 			wrapper.cleanup()
-			expect(instance.removeEventListener).toHaveBeenCalledTimes(2)
+			expect(instance.removeEventListener).toHaveBeenCalledTimes(3)
+		})
+
+		it('removes the internal end listener on cleanup', () => {
+			wrapper.cleanup()
+			expect(instance.removeEventListener).toHaveBeenCalledWith('end', expect.any(Function))
 		})
 
 		it('nulls the instance', () => {

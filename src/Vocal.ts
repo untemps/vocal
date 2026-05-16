@@ -54,6 +54,9 @@ class Vocal {
 	private _instance: SpeechRecognition | null = null
 	private _listeners: Record<string, EventHandler> | null = null
 	private _isRecording: boolean = false
+	private _onEnd: () => void = () => {
+		this._isRecording = false
+	}
 
 	constructor(options?: VocalOptions) {
 		const SpeechRecognition = Vocal._resolveSpeechRecognition()
@@ -79,9 +82,7 @@ class Vocal {
 			instance.grammars = grammars
 		}
 
-		this._instance.addEventListener('end', () => {
-			this._isRecording = false
-		})
+		this._instance.addEventListener('end', this._onEnd)
 	}
 
 	get instance(): SpeechRecognition | null {
@@ -186,6 +187,7 @@ class Vocal {
 		this.stop()
 
 		Object.keys(this._listeners!).forEach((key) => this.removeEventListener(key))
+		this._instance?.removeEventListener('end', this._onEnd)
 		this._instance = null
 
 		return this
