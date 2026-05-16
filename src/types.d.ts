@@ -23,6 +23,11 @@ declare interface SpeechRecognitionEvent extends Event {
 	readonly results: SpeechRecognitionResultList
 }
 
+declare interface SpeechRecognitionErrorEvent extends Event {
+	readonly error: string
+	readonly message: string
+}
+
 declare interface SpeechRecognition extends EventTarget {
 	continuous: boolean
 	grammars: SpeechGrammarList | null

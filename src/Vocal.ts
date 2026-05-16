@@ -14,7 +14,21 @@ export interface VocalOptions {
 
 export type EventType = (typeof Vocal.eventTypes)[keyof typeof Vocal.eventTypes]
 
-type EventHandler = (event: Event | unknown, ...args: unknown[]) => void
+export type ResultEventHandler = (
+	event: SpeechRecognitionEvent,
+	bestAlternative: string,
+	alternatives: string[]
+) => void
+export type ErrorEventHandler = (event: SpeechRecognitionErrorEvent) => void
+export type GenericEventHandler = (event: Event) => void
+
+export type EventHandlerFor<T extends EventType> = T extends 'result'
+	? ResultEventHandler
+	: T extends 'error'
+		? ErrorEventHandler
+		: GenericEventHandler
+
+type EventHandler = (...args: unknown[]) => void
 
 class Vocal {
 	static defaultOptions: Required<VocalOptions> = {
@@ -141,13 +155,14 @@ class Vocal {
 		return this
 	}
 
+	addEventListener<T extends EventType>(eventType: T, callback: EventHandlerFor<T>): this
 	addEventListener(eventType: string, callback: EventHandler): this {
 		if (!this._includesEventType(eventType)) {
 			throw new Error(this._unknownEventTypeMessage(eventType))
 		}
 		if (this._instance && this._listeners) {
 			if (this._listeners[eventType]) {
-				this.removeEventListener(eventType)
+				this.removeEventListener(eventType as EventType)
 			}
 
 			const handler: EventHandler = (event) => {
@@ -166,7 +181,7 @@ class Vocal {
 					}
 				}
 
-				callback.apply(this, [event, ...additionalArgs])
+				;(callback as EventHandler).call(this, event, ...additionalArgs)
 			}
 			this._instance.addEventListener(eventType, handler as EventListener)
 
@@ -176,6 +191,7 @@ class Vocal {
 		return this
 	}
 
+	removeEventListener(eventType: EventType): this
 	removeEventListener(eventType: string): this {
 		if (!this._includesEventType(eventType)) {
 			throw new Error(this._unknownEventTypeMessage(eventType))
@@ -192,7 +208,7 @@ class Vocal {
 	cleanup(): this {
 		this.stop()
 
-		Object.keys(this._listeners!).forEach((key) => this.removeEventListener(key))
+		Object.keys(this._listeners!).forEach((key) => this.removeEventListener(key as EventType))
 		this._instance?.removeEventListener('end', this._onEnd)
 		this._instance = null
 
