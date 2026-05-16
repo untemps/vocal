@@ -66,7 +66,7 @@ class Vocal {
 	}
 
 	private _instance: SpeechRecognition | null = null
-	private _listeners: Record<string, Array<{ callback: EventHandler; handler: EventHandler }>> | null = null
+	private _listeners: Record<string, Array<{ callback: EventHandler; handler: EventHandler }>> = {}
 	private _isRecording: boolean = false
 	private _onEnd: () => void = () => {
 		this._isRecording = false
@@ -79,7 +79,6 @@ class Vocal {
 		}
 
 		this._instance = new SpeechRecognition()
-		this._listeners = {}
 
 		const { grammars, ...rest }: Required<VocalOptions> = {
 			...Vocal.defaultOptions,
@@ -152,7 +151,7 @@ class Vocal {
 		if (!this._includesEventType(eventType)) {
 			throw new Error(this._unknownEventTypeMessage(eventType))
 		}
-		if (this._instance && this._listeners) {
+		if (this._instance) {
 			const handler: EventHandler = (event) => {
 				const additionalArgs: unknown[] = []
 				if (eventType === Vocal.eventTypes.RESULT) {
@@ -188,7 +187,7 @@ class Vocal {
 			throw new Error(this._unknownEventTypeMessage(eventType))
 		}
 		const instance = this._instance
-		if (instance && this._listeners && this._listeners[eventType]) {
+		if (instance && this._listeners[eventType]) {
 			if (callback !== undefined) {
 				const idx = this._listeners[eventType].findIndex((e) => e.callback === callback)
 				if (idx !== -1) {
@@ -221,7 +220,7 @@ class Vocal {
 	cleanup(): this {
 		this.stop()
 
-		Object.keys(this._listeners!).forEach((key) => this.removeEventListener(key as EventType))
+		Object.keys(this._listeners).forEach((key) => this.removeEventListener(key as EventType))
 		this._instance?.removeEventListener('end', this._onEnd)
 		this._instance = null
 
