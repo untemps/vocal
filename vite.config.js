@@ -6,9 +6,8 @@ export default defineConfig({
 	build: {
 		lib: {
 			entry: 'src/index.ts',
-			name: 'Vocal',
-			formats: ['es', 'cjs', 'umd'],
-			fileName: (format) => ({ es: 'index.es.js', umd: 'index.umd.js', cjs: 'index.cjs' })[format],
+			formats: ['es', 'cjs'],
+			fileName: (format) => ({ es: 'index.es.js', cjs: 'index.cjs' })[format],
 		},
 		rollupOptions: {
 			external: ['@untemps/user-permissions-utils'],
