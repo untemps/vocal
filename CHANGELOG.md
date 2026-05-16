@@ -1,3 +1,15 @@
+# [2.0.0-beta.17](https://github.com/untemps/vocal/compare/v2.0.0-beta.16...v2.0.0-beta.17) (2026-05-16)
+
+
+### Features
+
+* Remove instance getter to prevent implementation leakage ([#77](https://github.com/untemps/vocal/issues/77)) ([93fc58f](https://github.com/untemps/vocal/commit/93fc58f46abe7fadced9c8f512dd69fb4865cd9c))
+
+
+### BREAKING CHANGES
+
+* vocal.instance is removed. Consumers who accessed the raw SpeechRecognition object must migrate to Vocal API methods.
+
 # [2.0.0-beta.16](https://github.com/untemps/vocal/compare/v2.0.0-beta.15...v2.0.0-beta.16) (2026-05-16)
 
 
