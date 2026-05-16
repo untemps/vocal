@@ -140,20 +140,6 @@ describe('Vocal', () => {
 		})
 
 		it.each([
-			['null stream', mockNull, undefined],
-			['getUserMediaStream throwing', undefined, new Error('mic denied')],
-		] as const)('remains false when start fails due to %s', async (_, resolved, rejected) => {
-			if (resolved !== undefined) {
-				vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(resolved)
-			} else {
-				vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockRejectedValueOnce(rejected)
-			}
-			const wrapper = new Vocal()
-			await wrapper.start().catch(() => {})
-			expect(wrapper.isRecording).toBe(false)
-		})
-
-		it.each([
 			['stop', (w: Vocal) => w.stop()],
 			['abort', (w: Vocal) => w.abort()],
 		] as const)('returns false after %s', async (_, action) => {
@@ -192,6 +178,7 @@ describe('Vocal', () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockNull)
 			const wrapper = new Vocal()
 			await expect(wrapper.start()).rejects.toThrow('Unable to retrieve the stream from media device')
+			expect(wrapper.isRecording).toBe(false)
 		})
 
 		it('rejects when getUserMediaStream throws', async () => {
@@ -201,6 +188,7 @@ describe('Vocal', () => {
 			})
 			const wrapper = new Vocal()
 			await expect(wrapper.start()).rejects.toThrow(error)
+			expect(wrapper.isRecording).toBe(false)
 		})
 
 		it('does nothing when instance is null', async () => {
