@@ -41,7 +41,7 @@ const vocal = new Vocal(options)
 vocal.addEventListener('speechstart', (event) => console.log('Vocal starts recording'))
 vocal.addEventListener('speechend', (event) => console.log('Vocal stops recording'))
 vocal.addEventListener('result', (event, bestAlternative, alternatives) => console.log('Vocal catches a result:', bestAlternative, alternatives))
-vocal.addEventListener('error', (error) => { throw error })
+vocal.addEventListener('error', (event) => console.error(event.error, event.message))
 
 // Start recording — rejects on error
 try {
@@ -97,7 +97,6 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | Getter      | Type                      | Description                                                                                                          |
 | ----------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | isSupported | boolean                   | Whether the current environment supports the SpeechRecognition Web API (static)                                      |
-| instance    | SpeechRecognition \| null | The underlying SpeechRecognition instance                                                                            |
 | isRecording | boolean                   | Whether recognition is currently active — `true` after `start()`, `false` after `stop()`, `abort()`, or `end` event |
 
 ## Methods

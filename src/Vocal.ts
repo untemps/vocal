@@ -99,14 +99,6 @@ class Vocal {
 		this._instance.addEventListener('end', this._onEnd)
 	}
 
-	get instance(): SpeechRecognition | null {
-		return this._instance
-	}
-
-	set instance(_: SpeechRecognition | null) {
-		throw new Error('You cannot set instance directly.')
-	}
-
 	get isRecording(): boolean {
 		return this._isRecording
 	}
