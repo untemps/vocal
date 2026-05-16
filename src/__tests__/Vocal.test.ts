@@ -464,6 +464,35 @@ describe('Vocal', () => {
 		})
 	})
 
+	describe('once', () => {
+		it('fires callback only on the first event', () => {
+			const onStart = vi.fn()
+			const wrapper = new Vocal()
+			wrapper.once(Vocal.eventTypes.START, onStart)
+			mockInstance(wrapper).start()
+			mockInstance(wrapper).start()
+			expect(onStart).toHaveBeenCalledTimes(1)
+		})
+
+		it('removes the listener after first fire', () => {
+			const onStart = vi.fn()
+			const wrapper = new Vocal()
+			wrapper.once(Vocal.eventTypes.START, onStart)
+			mockInstance(wrapper).start()
+			expect(mockInstance(wrapper).removeEventListener).toHaveBeenCalled()
+		})
+
+		it('throws on invalid event types', () => {
+			const wrapper = new Vocal()
+			expect(() => wrapper.once('invalid-type', vi.fn())).toThrow('Unknown event type "invalid-type"')
+		})
+
+		it('returns this for chaining', () => {
+			const wrapper = new Vocal()
+			expect(wrapper.once(Vocal.eventTypes.START, vi.fn())).toBe(wrapper)
+		})
+	})
+
 	describe('cleanup', () => {
 		let wrapper: Vocal
 		let instance: MockInstance
