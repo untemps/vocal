@@ -23,7 +23,6 @@
 	"files": [
 		"dist/index.cjs",
 		"dist/index.es.js",
-		"dist/index.umd.js",
 		"dist/index.d.ts",
 		"CHANGELOG.md"
 	],
@@ -98,10 +97,6 @@
 						{
 							"path": "dist/index.es.js",
 							"label": "ES distribution"
-						},
-						{
-							"path": "dist/index.umd.js",
-							"label": "UMD distribution"
 						}
 					]
 				}
