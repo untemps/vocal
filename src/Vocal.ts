@@ -142,7 +142,10 @@ class Vocal {
 	}
 
 	addEventListener(eventType: string, callback: EventHandler): this {
-		if (this._instance && this._listeners && this._includesEventType(eventType)) {
+		if (!this._includesEventType(eventType)) {
+			throw new Error(this._unknownEventTypeMessage(eventType))
+		}
+		if (this._instance && this._listeners) {
 			if (this._listeners[eventType]) {
 				this.removeEventListener(eventType)
 			}
@@ -174,6 +177,9 @@ class Vocal {
 	}
 
 	removeEventListener(eventType: string): this {
+		if (!this._includesEventType(eventType)) {
+			throw new Error(this._unknownEventTypeMessage(eventType))
+		}
 		if (this._instance && this._listeners) {
 			const handler = this._listeners[eventType]
 			this._instance.removeEventListener(eventType, handler as EventListener)
@@ -195,6 +201,10 @@ class Vocal {
 
 	private _includesEventType(eventType: string): boolean {
 		return Object.values(Vocal.eventTypes).includes(eventType as EventType)
+	}
+
+	private _unknownEventTypeMessage(eventType: string): string {
+		return `Unknown event type "${eventType}". Valid types are: ${Object.values(Vocal.eventTypes).join(', ')}.`
 	}
 
 	private static _resolveSpeechRecognition(): typeof SpeechRecognition | undefined {
