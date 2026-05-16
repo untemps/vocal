@@ -1,3 +1,10 @@
+# [2.0.0-beta.11](https://github.com/untemps/vocal/compare/v2.0.0-beta.10...v2.0.0-beta.11) (2026-05-16)
+
+
+### Bug Fixes
+
+* Throw on invalid event type in addEventListener and removeEventListener ([#69](https://github.com/untemps/vocal/issues/69)) ([a474718](https://github.com/untemps/vocal/commit/a474718fc7f36e4828a5430cf7c19b851401189d))
+
 # [2.0.0-beta.10](https://github.com/untemps/vocal/compare/v2.0.0-beta.9...v2.0.0-beta.10) (2026-05-16)
 
 
