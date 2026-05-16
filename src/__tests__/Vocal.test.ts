@@ -6,8 +6,10 @@ type MockFn = {
 	mock: { calls: unknown[][] }
 }
 
+type SayAlternative = string | { transcript: string; confidence: number }
+
 interface MockInstance {
-	say: MockFn
+	say: ((sentence: string, alternatives?: SayAlternative[]) => void) & { mock: { calls: unknown[][] } }
 	addEventListener: MockFn
 	removeEventListener: MockFn
 	start: MockFn
@@ -326,20 +328,11 @@ describe('Vocal', () => {
 			const onResult = vi.fn()
 			const wrapper = new Vocal()
 			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-			const [, handler] = (mockInstance(wrapper).addEventListener.mock.calls as string[][]).find(
-				([type]) => type === Vocal.eventTypes.RESULT
-			)!
-			const event = Object.assign(new Event(Vocal.eventTypes.RESULT), {
-				resultIndex: 0,
-				results: [
-					[
-						{ transcript: 'hello', confidence: 0.7 },
-						{ transcript: 'helo', confidence: 0.9 },
-						{ transcript: 'hell', confidence: 0.5 },
-					],
-				],
-			})
-			;(handler as unknown as (e: Event) => void)(event)
+			mockInstance(wrapper).say('helo', [
+				{ transcript: 'hello', confidence: 0.7 },
+				{ transcript: 'helo', confidence: 0.9 },
+				{ transcript: 'hell', confidence: 0.5 },
+			])
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'helo', ['hello', 'helo', 'hell'])
 		})
 
