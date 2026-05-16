@@ -40,7 +40,7 @@ vocal.addEventListener('error', (error) => { throw error })
 try {
   await vocal.start()
 } catch (error) {
-  console.error(error)
+  // handle error
 }
 
 // Stop/Pause recording
