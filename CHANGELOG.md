@@ -1,3 +1,16 @@
+# [2.0.0-beta.6](https://github.com/untemps/vocal/compare/v2.0.0-beta.5...v2.0.0-beta.6) (2026-05-16)
+
+
+### chore
+
+* Add type module and rename CJS dist to index.cjs ([#45](https://github.com/untemps/vocal/issues/45)) ([e9923af](https://github.com/untemps/vocal/commit/e9923af7032fe48fc0b214bb77e3d6708a4b1adb))
+
+
+### BREAKING CHANGES
+
+* "main" field: dist/index.js → dist/index.cjs. Consumers using the main field directly (not via the exports map) must update their import path.
+Consumers using the exports map (require/import conditions) are not affected.
+
 # [2.0.0-beta.5](https://github.com/untemps/vocal/compare/v2.0.0-beta.4...v2.0.0-beta.5) (2026-05-16)
 
 
