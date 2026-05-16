@@ -66,7 +66,7 @@ class Vocal {
 	}
 
 	private _instance: SpeechRecognition | null = null
-	private _listeners: Record<string, EventHandler> | null = null
+	private _listeners: Record<string, Array<{ callback: EventHandler; handler: EventHandler }>> | null = null
 	private _isRecording: boolean = false
 	private _onEnd: () => void = () => {
 		this._isRecording = false
@@ -161,10 +161,6 @@ class Vocal {
 			throw new Error(this._unknownEventTypeMessage(eventType))
 		}
 		if (this._instance && this._listeners) {
-			if (this._listeners[eventType]) {
-				this.removeEventListener(eventType as EventType)
-			}
-
 			const handler: EventHandler = (event) => {
 				const additionalArgs: unknown[] = []
 				if (eventType === Vocal.eventTypes.RESULT) {
@@ -185,21 +181,37 @@ class Vocal {
 			}
 			this._instance.addEventListener(eventType, handler as EventListener)
 
-			this._listeners[eventType] = handler
+			if (!this._listeners[eventType]) {
+				this._listeners[eventType] = []
+			}
+			this._listeners[eventType].push({ callback, handler })
 		}
 
 		return this
 	}
 
-	removeEventListener(eventType: EventType): this
-	removeEventListener(eventType: string): this {
+	removeEventListener<T extends EventType>(eventType: T, callback?: EventHandlerFor<T>): this
+	removeEventListener(eventType: string, callback?: EventHandler): this {
 		if (!this._includesEventType(eventType)) {
 			throw new Error(this._unknownEventTypeMessage(eventType))
 		}
-		if (this._instance && this._listeners) {
-			const handler = this._listeners[eventType]
-			this._instance.removeEventListener(eventType, handler as EventListener)
-			delete this._listeners[eventType]
+		const instance = this._instance
+		if (instance && this._listeners && this._listeners[eventType]) {
+			if (callback !== undefined) {
+				const idx = this._listeners[eventType].findIndex((e) => e.callback === callback)
+				if (idx !== -1) {
+					instance.removeEventListener(eventType, this._listeners[eventType][idx].handler as EventListener)
+					this._listeners[eventType].splice(idx, 1)
+					if (this._listeners[eventType].length === 0) {
+						delete this._listeners[eventType]
+					}
+				}
+			} else {
+				this._listeners[eventType].forEach(({ handler }) =>
+					instance.removeEventListener(eventType, handler as EventListener)
+				)
+				delete this._listeners[eventType]
+			}
 		}
 
 		return this

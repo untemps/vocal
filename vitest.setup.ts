@@ -76,24 +76,32 @@ global.SpeechGrammarList = vi.fn(function () {
 }) as unknown as typeof SpeechGrammarList
 
 global.SpeechRecognition = vi.fn(function () {
-	const handlers: Record<string, (event?: unknown) => void> = {}
+	const handlers: Record<string, ((event?: unknown) => void)[]> = {}
+
+	const dispatch = (type: string, event?: unknown) => handlers[type]?.forEach((h) => h(event))
+
 	return {
 		addEventListener: vi.fn(function (type: string, callback: (event?: unknown) => void) {
-			handlers[type] = callback
+			if (!handlers[type]) handlers[type] = []
+			handlers[type].push(callback)
 		}),
-		removeEventListener: vi.fn(),
+		removeEventListener: vi.fn(function (type: string, callback: (event?: unknown) => void) {
+			if (handlers[type]) {
+				handlers[type] = handlers[type].filter((h) => h !== callback)
+			}
+		}),
 		dispatchEvent: vi.fn(),
 		start: vi.fn(function () {
-			handlers.start?.()
+			dispatch('start')
 		}),
 		stop: vi.fn(function () {
-			handlers.end?.()
+			dispatch('end')
 		}),
 		abort: vi.fn(function () {
-			handlers.end?.()
+			dispatch('end')
 		}),
 		say: vi.fn(function (sentence: string, alternatives?: (string | { transcript: string; confidence: number })[]) {
-			handlers.speechstart?.()
+			dispatch('speechstart')
 
 			const alts = alternatives ?? [sentence]
 			const resultEvent = new Event('result') as Event & {
@@ -103,11 +111,11 @@ global.SpeechRecognition = vi.fn(function () {
 			resultEvent.resultIndex = 0
 			resultEvent.results = [alts.map((t) => (typeof t === 'string' ? { transcript: t, confidence: 0 } : t))]
 			if (sentence) {
-				handlers.result?.(resultEvent)
+				dispatch('result', resultEvent)
 			} else {
-				handlers.nomatch?.()
+				dispatch('nomatch')
 			}
-			handlers.speechend?.()
+			dispatch('speechend')
 		}),
 	} as MockSpeechRecognitionInstance
 }) as unknown as typeof SpeechRecognition
