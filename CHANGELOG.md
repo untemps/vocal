@@ -1,3 +1,16 @@
+# [2.0.0-beta.4](https://github.com/untemps/vocal/compare/v2.0.0-beta.3...v2.0.0-beta.4) (2026-05-16)
+
+
+### Features
+
+* start() rejects on error instead of always resolving ([#43](https://github.com/untemps/vocal/issues/43)) ([4414f11](https://github.com/untemps/vocal/commit/4414f11608e795b94845d06e6be53e8e5a76e022))
+
+
+### BREAKING CHANGES
+
+* start(): no longer resolves when the microphone stream fails. Callers who did not handle rejections will receive an UnhandledPromiseRejection.
+Migration: wrap await vocal.start() in try/catch, or use .catch().
+
 # [2.0.0-beta.3](https://github.com/untemps/vocal/compare/v2.0.0-beta.2...v2.0.0-beta.3) (2026-05-15)
 
 
