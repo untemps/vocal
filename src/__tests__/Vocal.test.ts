@@ -18,7 +18,7 @@ interface MockInstance {
 	[key: string]: unknown
 }
 
-const mockInstance = (wrapper: Vocal) => wrapper.instance as unknown as MockInstance
+const mockInstance = (wrapper: Vocal) => (wrapper as unknown as { _instance: MockInstance })._instance
 const mockStream = 'stream' as unknown as MediaStream
 const mockNull = null as unknown as MediaStream
 
@@ -77,27 +77,27 @@ describe('Vocal', () => {
 	describe('constructor', () => {
 		it('applies default options', () => {
 			const wrapper = new Vocal()
-			expect(wrapper.instance!.lang).toBe('en-US')
-			expect(wrapper.instance!.continuous).toBe(false)
-			expect(wrapper.instance!.interimResults).toBe(false)
-			expect(wrapper.instance!.maxAlternatives).toBe(1)
+			expect(mockInstance(wrapper).lang).toBe('en-US')
+			expect(mockInstance(wrapper).continuous).toBe(false)
+			expect(mockInstance(wrapper).interimResults).toBe(false)
+			expect(mockInstance(wrapper).maxAlternatives).toBe(1)
 		})
 
 		it('applies custom options', () => {
 			const wrapper = new Vocal({ lang: 'fr-FR', continuous: true })
-			expect(wrapper.instance!.lang).toBe('fr-FR')
-			expect(wrapper.instance!.continuous).toBe(true)
+			expect(mockInstance(wrapper).lang).toBe('fr-FR')
+			expect(mockInstance(wrapper).continuous).toBe(true)
 		})
 
 		it('assigns SpeechGrammarList instance when grammars is null and SpeechGrammarList is available', () => {
 			const wrapper = new Vocal()
-			expect(wrapper.instance!.grammars).not.toBeNull()
+			expect(mockInstance(wrapper).grammars).not.toBeNull()
 		})
 
 		it('uses provided grammars value when non-null', () => {
 			const grammars = { items: [] } as unknown as SpeechGrammarList
 			const wrapper = new Vocal({ grammars })
-			expect(wrapper.instance!.grammars).toBe(grammars)
+			expect(mockInstance(wrapper).grammars).toBe(grammars)
 		})
 
 		describe('when SpeechRecognition is unavailable', () => {
@@ -127,20 +127,8 @@ describe('Vocal', () => {
 
 			it('leaves grammars null', () => {
 				const wrapper = new Vocal()
-				expect(wrapper.instance!.grammars).toBeNull()
+				expect(mockInstance(wrapper).grammars).toBeNull()
 			})
-		})
-	})
-
-	describe('instance', () => {
-		it('returns the internal SpeechRecognition instance', () => {
-			const wrapper = new Vocal()
-			expect(wrapper.instance).not.toBeNull()
-		})
-
-		it('throws when setting instance directly', () => {
-			const wrapper = new Vocal()
-			expect(() => (wrapper.instance = null)).toThrow()
 		})
 	})
 
@@ -521,7 +509,7 @@ describe('Vocal', () => {
 
 		it('nulls the instance', () => {
 			wrapper.cleanup()
-			expect(wrapper.instance).toBeNull()
+			expect(mockInstance(wrapper)).toBeNull()
 		})
 
 		it('returns this for chaining', () => {
