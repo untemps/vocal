@@ -1,3 +1,16 @@
+# [2.0.0-beta.15](https://github.com/untemps/vocal/compare/v2.0.0-beta.14...v2.0.0-beta.15) (2026-05-16)
+
+
+### Features
+
+* Support multiple listeners per event type in addEventListener ([#75](https://github.com/untemps/vocal/issues/75)) ([97a435d](https://github.com/untemps/vocal/commit/97a435dc09105fadb9d8c22052ddaa75cbb6ee26))
+
+
+### BREAKING CHANGES
+
+* addEventListener now stacks listeners instead of replacing. removeEventListener(eventType) removes all handlers for the type
+removeEventListener(eventType, callback) removes only the specific callback.
+
 # [2.0.0-beta.14](https://github.com/untemps/vocal/compare/v2.0.0-beta.13...v2.0.0-beta.14) (2026-05-16)
 
 # [2.0.0-beta.13](https://github.com/untemps/vocal/compare/v2.0.0-beta.12...v2.0.0-beta.13) (2026-05-16)
