@@ -402,19 +402,20 @@ describe('Vocal', () => {
 			expect(onStart2).toHaveBeenCalled()
 		})
 
-		it('ignores invalid event types', () => {
-			const cb = vi.fn()
+		it('throws on invalid event types', () => {
 			const wrapper = new Vocal()
-			wrapper.addEventListener('invalid-type', cb)
-			expect(mockInstance(wrapper).addEventListener).not.toHaveBeenCalledWith(
-				'invalid-type',
-				expect.any(Function)
-			)
+			expect(() => wrapper.addEventListener('invalid-type', vi.fn())).toThrow('Unknown event type "invalid-type"')
 		})
 
 		it('returns this for chaining', () => {
 			const wrapper = new Vocal()
 			expect(wrapper.addEventListener(Vocal.eventTypes.START, vi.fn())).toBe(wrapper)
+		})
+
+		it('does nothing when instance is null', () => {
+			const wrapper = new Vocal()
+			wrapper.cleanup()
+			expect(() => wrapper.addEventListener(Vocal.eventTypes.START, vi.fn())).not.toThrow()
 		})
 	})
 
@@ -436,6 +437,11 @@ describe('Vocal', () => {
 			const wrapper = new Vocal()
 			wrapper.cleanup()
 			expect(() => wrapper.removeEventListener(Vocal.eventTypes.START)).not.toThrow()
+		})
+
+		it('throws on invalid event types', () => {
+			const wrapper = new Vocal()
+			expect(() => wrapper.removeEventListener('invalid-type')).toThrow('Unknown event type "invalid-type"')
 		})
 	})
 
