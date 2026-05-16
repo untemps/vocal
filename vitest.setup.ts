@@ -20,6 +20,8 @@ interface MockMediaDevices {
 	getUserMedia: Mock
 }
 
+type SayAlternative = string | { transcript: string; confidence: number }
+
 interface MockSpeechRecognitionInstance {
 	addEventListener: Mock
 	removeEventListener: Mock
@@ -27,7 +29,7 @@ interface MockSpeechRecognitionInstance {
 	start: Mock
 	stop: Mock
 	abort: Mock
-	say: Mock
+	say: Mock<[sentence: string, alternatives?: SayAlternative[]], void>
 }
 
 declare global {
@@ -90,16 +92,16 @@ global.SpeechRecognition = vi.fn(function () {
 		abort: vi.fn(function () {
 			handlers.end?.()
 		}),
-		say: vi.fn(function (sentence: string, alternatives?: string[]) {
+		say: vi.fn(function (sentence: string, alternatives?: (string | { transcript: string; confidence: number })[]) {
 			handlers.speechstart?.()
 
 			const alts = alternatives ?? [sentence]
 			const resultEvent = new Event('result') as Event & {
 				resultIndex: number
-				results: { transcript: string }[][]
+				results: { transcript: string; confidence: number }[][]
 			}
 			resultEvent.resultIndex = 0
-			resultEvent.results = [alts.map((t) => ({ transcript: t }))]
+			resultEvent.results = [alts.map((t) => (typeof t === 'string' ? { transcript: t, confidence: 0 } : t))]
 			if (sentence) {
 				handlers.result?.(resultEvent)
 			} else {
