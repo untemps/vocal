@@ -139,22 +139,6 @@ describe('Vocal', () => {
 			expect(wrapper.isRecording).toBe(true)
 		})
 
-		it('remains false when start fails due to null stream', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockNull)
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.ERROR, vi.fn())
-			await wrapper.start()
-			expect(wrapper.isRecording).toBe(false)
-		})
-
-		it('remains false when start fails due to getUserMediaStream throwing', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockRejectedValueOnce(new Error('mic denied'))
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.ERROR, vi.fn())
-			await wrapper.start()
-			expect(wrapper.isRecording).toBe(false)
-		})
-
 		it.each([
 			['stop', (w: Vocal) => w.stop()],
 			['abort', (w: Vocal) => w.abort()],
@@ -190,31 +174,21 @@ describe('Vocal', () => {
 			expect(mockInstance(wrapper).start).toHaveBeenCalled()
 		})
 
-		it('calls error handler when getUserMediaStream returns null', async () => {
-			const onError = vi.fn()
+		it('rejects when getUserMediaStream returns null', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockNull)
 			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.ERROR, onError)
-			await wrapper.start()
-			expect(onError).toHaveBeenCalledWith(new Error('Unable to retrieve the stream from media device'))
+			await expect(wrapper.start()).rejects.toThrow('Unable to retrieve the stream from media device')
+			expect(wrapper.isRecording).toBe(false)
 		})
 
-		it('calls error handler when getUserMediaStream throws', async () => {
-			const onError = vi.fn()
+		it('rejects when getUserMediaStream throws', async () => {
 			const error = new Error('foo')
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockImplementationOnce(() => {
 				throw error
 			})
 			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.ERROR, onError)
-			await wrapper.start()
-			expect(onError).toHaveBeenCalledWith(error)
-		})
-
-		it('does not throw when getUserMediaStream fails and no error handler is registered', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockNull)
-			const wrapper = new Vocal()
-			await expect(wrapper.start()).resolves.toBe(wrapper)
+			await expect(wrapper.start()).rejects.toThrow(error)
+			expect(wrapper.isRecording).toBe(false)
 		})
 
 		it('does nothing when instance is null', async () => {
@@ -231,14 +205,11 @@ describe('Vocal', () => {
 			expect(await wrapper.start()).toBe(wrapper)
 		})
 
-		it('does not call error handler when getUserMediaStream is aborted', async () => {
-			const onError = vi.fn()
+		it('resolves when getUserMediaStream is aborted', async () => {
 			const abortError = Object.assign(new Error('Aborted'), { name: 'AbortError' })
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockRejectedValueOnce(abortError)
 			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.ERROR, onError)
-			await wrapper.start()
-			expect(onError).not.toHaveBeenCalled()
+			await expect(wrapper.start()).resolves.toBe(wrapper)
 		})
 
 		it('forwards signal to getUserMediaStream when provided', async () => {
