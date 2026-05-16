@@ -275,7 +275,7 @@ describe('Vocal', () => {
 			expect(onStart).toHaveBeenCalled()
 		})
 
-		it('passes transcript and alternatives array for RESULT events', () => {
+		it('passes best transcript and alternatives array for RESULT events', () => {
 			const onResult = vi.fn()
 			const wrapper = new Vocal()
 			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
@@ -289,6 +289,42 @@ describe('Vocal', () => {
 			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
 			mockInstance(wrapper).say('hello', ['hello', 'helo', 'hell'])
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello', ['hello', 'helo', 'hell'])
+		})
+
+		it('falls back to first alternative when confidence is unavailable', () => {
+			const onResult = vi.fn()
+			const wrapper = new Vocal()
+			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
+			const [, handler] = (mockInstance(wrapper).addEventListener.mock.calls as string[][]).find(
+				([type]) => type === Vocal.eventTypes.RESULT
+			)!
+			const event = Object.assign(new Event(Vocal.eventTypes.RESULT), {
+				resultIndex: 0,
+				results: [[{ transcript: 'hello' }, { transcript: 'helo' }, { transcript: 'hell' }]],
+			})
+			;(handler as unknown as (e: Event) => void)(event)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello', ['hello', 'helo', 'hell'])
+		})
+
+		it('selects the alternative with highest confidence as best transcript', () => {
+			const onResult = vi.fn()
+			const wrapper = new Vocal()
+			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
+			const [, handler] = (mockInstance(wrapper).addEventListener.mock.calls as string[][]).find(
+				([type]) => type === Vocal.eventTypes.RESULT
+			)!
+			const event = Object.assign(new Event(Vocal.eventTypes.RESULT), {
+				resultIndex: 0,
+				results: [
+					[
+						{ transcript: 'hello', confidence: 0.7 },
+						{ transcript: 'helo', confidence: 0.9 },
+						{ transcript: 'hell', confidence: 0.5 },
+					],
+				],
+			})
+			;(handler as unknown as (e: Event) => void)(event)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'helo', ['hello', 'helo', 'hell'])
 		})
 
 		it('does not pass transcript for RESULT events with empty results', () => {
