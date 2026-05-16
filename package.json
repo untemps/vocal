@@ -115,6 +115,6 @@
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint src/ vitest.setup.ts",
 		"prepare": "husky",
-		"prettier": "prettier \"src/**/*.{ts,js}\" vitest.setup.ts --ignore-path ./.prettierignore --write"
+		"prettier": "prettier \"src/**/*.{ts,js}\" vitest.setup.ts \"*.{js,ts}\" --ignore-path ./.prettierignore --write"
 	}
 }
