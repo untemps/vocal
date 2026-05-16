@@ -1,3 +1,10 @@
+# [2.0.0-beta.10](https://github.com/untemps/vocal/compare/v2.0.0-beta.9...v2.0.0-beta.10) (2026-05-16)
+
+
+### Bug Fixes
+
+* Remove internal end listener on cleanup ([#68](https://github.com/untemps/vocal/issues/68)) ([3179943](https://github.com/untemps/vocal/commit/31799433b054cca334d6159d8aae9e00c8971b6d))
+
 # [2.0.0-beta.9](https://github.com/untemps/vocal/compare/v2.0.0-beta.8...v2.0.0-beta.9) (2026-05-16)
 
 # [2.0.0-beta.8](https://github.com/untemps/vocal/compare/v2.0.0-beta.7...v2.0.0-beta.8) (2026-05-16)
