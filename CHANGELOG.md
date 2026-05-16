@@ -1,3 +1,15 @@
+# [2.0.0-beta.18](https://github.com/untemps/vocal/compare/v2.0.0-beta.17...v2.0.0-beta.18) (2026-05-16)
+
+
+### chore
+
+* Remove UMD bundle from distribution ([#78](https://github.com/untemps/vocal/issues/78)) ([c0c819c](https://github.com/untemps/vocal/commit/c0c819c251cf4ee838463bf9dd6a960a70f6ad32))
+
+
+### BREAKING CHANGES
+
+* dist/index.umd.js is no longer published. Consumers loading via <script> tags or AMD loaders should use dist/index.es.js with a module-aware loader instead.
+
 # [2.0.0-beta.17](https://github.com/untemps/vocal/compare/v2.0.0-beta.16...v2.0.0-beta.17) (2026-05-16)
 
 
