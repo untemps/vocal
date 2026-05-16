@@ -54,6 +54,22 @@ describe('Vocal', () => {
 				expect(Vocal.isSupported).toBe(false)
 			})
 		})
+
+		describe('when window is not defined (SSR)', () => {
+			let originalWindow: typeof globalThis.window
+			beforeEach(() => {
+				originalWindow = globalThis.window
+				delete (globalThis as unknown as Record<string, unknown>).window
+			})
+			afterEach(() => {
+				globalThis.window = originalWindow
+			})
+
+			it('returns false without throwing', () => {
+				expect(() => Vocal.isSupported).not.toThrow()
+				expect(Vocal.isSupported).toBe(false)
+			})
+		})
 	})
 
 	describe('constructor', () => {
