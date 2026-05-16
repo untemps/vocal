@@ -108,6 +108,36 @@ vocal.start({ signal: controller.signal })
 controller.abort()
 ```
 
+### `stop()`
+
+Stops recognition gracefully, allowing the current audio to be processed before disconnecting. Sets `isRecording` to `false`.
+
+### `abort()`
+
+Stops recognition immediately without processing pending audio. Sets `isRecording` to `false`.
+
+### `addEventListener(eventType, callback)`
+
+Registers a callback for the given event type. Multiple callbacks can be registered for the same type — they stack and all fire in registration order.
+
+| Parameter | Type                                              | Description                                |
+| --------- | ------------------------------------------------- | ------------------------------------------ |
+| eventType | `EventType`                                       | One of the valid event type strings        |
+| callback  | `ResultEventHandler \| ErrorEventHandler \| GenericEventHandler` | Callback invoked when the event fires |
+
+Throws if `eventType` is not a valid `EventType`.
+
+### `removeEventListener(eventType, callback?)`
+
+Removes a listener for the given event type.
+
+| Parameter | Type                                              | Default     | Description                                          |
+| --------- | ------------------------------------------------- | ----------- | ---------------------------------------------------- |
+| eventType | `EventType`                                       |             | One of the valid event type strings                  |
+| callback  | `ResultEventHandler \| ErrorEventHandler \| GenericEventHandler` | `undefined` | Specific callback to remove. Omit to remove all listeners for this type |
+
+Throws if `eventType` is not a valid `EventType`.
+
 ### `once(eventType, callback)`
 
 Registers a one-shot listener that automatically unregisters itself after firing once.
@@ -123,4 +153,8 @@ vocal.once('result', (event, bestAlternative, alternatives) => {
     vocal.stop()
 })
 ```
+
+### `cleanup()`
+
+Stops recognition, removes all registered listeners, and releases the internal `SpeechRecognition` instance. The `Vocal` object cannot be reused after `cleanup()`.
 
