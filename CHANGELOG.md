@@ -1,3 +1,10 @@
+# [2.0.0-beta.7](https://github.com/untemps/vocal/compare/v2.0.0-beta.6...v2.0.0-beta.7) (2026-05-16)
+
+
+### Bug Fixes
+
+* Use resultIndex to select current result in continuous mode ([#64](https://github.com/untemps/vocal/issues/64)) ([62d61c4](https://github.com/untemps/vocal/commit/62d61c41ec7713cb01d578568b462734324e722a))
+
 # [2.0.0-beta.6](https://github.com/untemps/vocal/compare/v2.0.0-beta.5...v2.0.0-beta.6) (2026-05-16)
 
 
