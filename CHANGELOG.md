@@ -1,3 +1,10 @@
+# [2.0.0-beta.8](https://github.com/untemps/vocal/compare/v2.0.0-beta.7...v2.0.0-beta.8) (2026-05-16)
+
+
+### Bug Fixes
+
+* Return false from isSupported in non-browser environments ([#65](https://github.com/untemps/vocal/issues/65)) ([56f67cc](https://github.com/untemps/vocal/commit/56f67cc6cc9ff6288472d1461a71d3e0cbc128ed))
+
 # [2.0.0-beta.7](https://github.com/untemps/vocal/compare/v2.0.0-beta.6...v2.0.0-beta.7) (2026-05-16)
 
 
