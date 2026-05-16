@@ -383,13 +383,24 @@ describe('Vocal', () => {
 			expect(onResult.mock.calls[0]).toHaveLength(1)
 		})
 
-		it('replaces existing listener when same event type is added twice', () => {
+		it('stacks multiple listeners for the same event type', () => {
 			const onStart1 = vi.fn()
 			const onStart2 = vi.fn()
 			const wrapper = new Vocal()
 			wrapper.addEventListener(Vocal.eventTypes.START, onStart1)
 			wrapper.addEventListener(Vocal.eventTypes.START, onStart2)
-			expect(mockInstance(wrapper).removeEventListener).toHaveBeenCalledTimes(1)
+			mockInstance(wrapper).start()
+			expect(onStart1).toHaveBeenCalled()
+			expect(onStart2).toHaveBeenCalled()
+		})
+
+		it('removes a specific listener by callback reference', () => {
+			const onStart1 = vi.fn()
+			const onStart2 = vi.fn()
+			const wrapper = new Vocal()
+			wrapper.addEventListener(Vocal.eventTypes.START, onStart1)
+			wrapper.addEventListener(Vocal.eventTypes.START, onStart2)
+			wrapper.removeEventListener(Vocal.eventTypes.START, onStart1)
 			mockInstance(wrapper).start()
 			expect(onStart1).not.toHaveBeenCalled()
 			expect(onStart2).toHaveBeenCalled()
@@ -435,6 +446,21 @@ describe('Vocal', () => {
 		it('throws on invalid event types', () => {
 			const wrapper = new Vocal()
 			expect(() => wrapper.removeEventListener('invalid-type')).toThrow('Unknown event type "invalid-type"')
+		})
+
+		it('does nothing when callback was never registered', () => {
+			const wrapper = new Vocal()
+			wrapper.addEventListener(Vocal.eventTypes.START, vi.fn())
+			expect(() => wrapper.removeEventListener(Vocal.eventTypes.START, vi.fn())).not.toThrow()
+		})
+
+		it('cleans up the listener entry when last callback is removed by reference', () => {
+			const onStart = vi.fn()
+			const wrapper = new Vocal()
+			wrapper.addEventListener(Vocal.eventTypes.START, onStart)
+			wrapper.removeEventListener(Vocal.eventTypes.START, onStart)
+			mockInstance(wrapper).start()
+			expect(onStart).not.toHaveBeenCalled()
 		})
 	})
 
