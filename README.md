@@ -65,6 +65,7 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | continuous       | boolean           | false      | Whether continuous results are returned for each recognition, or only a single result                             |
 | interimResults   | boolean           | false      | Whether interim results should be returned or not. Interim results are results that are not yet final             |
 | maxAlternatives  | number            | 1          | Maximum number of SpeechRecognitionAlternatives provided per result                                               |
+
 ## Events
 
 Events described below are those from the `SpeechRecognition` Web API.  
