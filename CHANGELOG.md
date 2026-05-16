@@ -1,3 +1,14 @@
+# [2.0.0-beta.5](https://github.com/untemps/vocal/compare/v2.0.0-beta.4...v2.0.0-beta.5) (2026-05-16)
+
+
+* refactor!: Select best RESULT transcript by confidence ([#44](https://github.com/untemps/vocal/issues/44)) ([4713366](https://github.com/untemps/vocal/commit/471336641a156623a17b6f7e0602658a3086381d))
+
+
+### BREAKING CHANGES
+
+* The RESULT callback signature changes from (event, transcript: string, alternatives: string[]) to (event, bestAlternative: string, alternatives: string[]) where bestAlternative is the alternative with the highest confidence score instead of the first in the array.
+Migration: no change needed if confidence ordering matches array order (standard browser behavior); replace transcript with bestAlternative if using the parameter name.
+
 # [2.0.0-beta.4](https://github.com/untemps/vocal/compare/v2.0.0-beta.3...v2.0.0-beta.4) (2026-05-16)
 
 
