@@ -327,6 +327,40 @@ describe('Vocal', () => {
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'helo', ['hello', 'helo', 'hell'])
 		})
 
+		it('uses resultIndex to select the current result in continuous mode', () => {
+			const onResult = vi.fn()
+			const wrapper = new Vocal()
+			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
+			const [, handler] = (mockInstance(wrapper).addEventListener.mock.calls as string[][]).find(
+				([type]) => type === Vocal.eventTypes.RESULT
+			)!
+			const event = Object.assign(new Event(Vocal.eventTypes.RESULT), {
+				resultIndex: 1,
+				results: [
+					[{ transcript: 'first utterance', confidence: 0.9 }],
+					[{ transcript: 'second utterance', confidence: 0.8 }],
+				],
+			})
+			;(handler as unknown as (e: Event) => void)(event)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'second utterance', ['second utterance'])
+		})
+
+		it('does not pass transcript when resultIndex is out of bounds', () => {
+			const onResult = vi.fn()
+			const wrapper = new Vocal()
+			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
+			const [, handler] = (mockInstance(wrapper).addEventListener.mock.calls as string[][]).find(
+				([type]) => type === Vocal.eventTypes.RESULT
+			)!
+			const event = Object.assign(new Event(Vocal.eventTypes.RESULT), {
+				resultIndex: 5,
+				results: [[{ transcript: 'hello', confidence: 0.9 }]],
+			})
+			;(handler as unknown as (e: Event) => void)(event)
+			expect(onResult).toHaveBeenCalledTimes(1)
+			expect(onResult.mock.calls[0]).toHaveLength(1)
+		})
+
 		it('does not pass transcript for RESULT events with empty results', () => {
 			const onResult = vi.fn()
 			const wrapper = new Vocal()

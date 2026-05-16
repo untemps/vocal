@@ -150,8 +150,8 @@ class Vocal {
 				const additionalArgs: unknown[] = []
 				if (eventType === Vocal.eventTypes.RESULT) {
 					const speechEvent = event as SpeechRecognitionEvent
-					if (speechEvent.results?.length > 0) {
-						const alternatives = Array.from(speechEvent.results[0])
+					if (speechEvent.results?.length > 0 && speechEvent.resultIndex < speechEvent.results.length) {
+						const alternatives = Array.from(speechEvent.results[speechEvent.resultIndex])
 						const bestAlternative = alternatives.reduce((a, b) =>
 							(b.confidence ?? 0) > (a.confidence ?? 0) ? b : a
 						)
