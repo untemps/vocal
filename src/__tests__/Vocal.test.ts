@@ -156,7 +156,7 @@ describe('Vocal', () => {
 			expect(wrapper.isRecording).toBe(false)
 		})
 
-		it('returns false when end event fires', async () => {
+		it('returns false when end event fires in non-continuous mode', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const wrapper = new Vocal()
 			await wrapper.start()
@@ -169,6 +169,85 @@ describe('Vocal', () => {
 		it('throws when setting isRecording directly', () => {
 			const wrapper = new Vocal()
 			expect(() => (wrapper.isRecording = true)).toThrow()
+		})
+	})
+
+	describe('continuous mode auto-restart', () => {
+		const fireEnd = (wrapper: Vocal) =>
+			mockInstance(wrapper)
+				.addEventListener.mock.calls.filter(([type]: string[]) => type === 'end')
+				.forEach(([, handler]: [string, EventListener]) => handler(new Event('end')))
+
+		it('calls instance.start when end fires without explicit stop in continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const startCallsBefore = mockInstance(wrapper).start.mock.calls.length
+			fireEnd(wrapper)
+			expect(mockInstance(wrapper).start.mock.calls.length).toBe(startCallsBefore + 1)
+		})
+
+		it('keeps isRecording true when auto-restarting in continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			fireEnd(wrapper)
+			expect(wrapper.isRecording).toBe(true)
+		})
+
+		it('does not restart when end fires in non-continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal()
+			await wrapper.start()
+			const startCallsBefore = mockInstance(wrapper).start.mock.calls.length
+			fireEnd(wrapper)
+			expect(mockInstance(wrapper).start.mock.calls.length).toBe(startCallsBefore)
+			expect(wrapper.isRecording).toBe(false)
+		})
+
+		it('does not restart after stop() in continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const startCallsBefore = mockInstance(wrapper).start.mock.calls.length
+			wrapper.stop()
+			expect(mockInstance(wrapper).start.mock.calls.length).toBe(startCallsBefore)
+			expect(wrapper.isRecording).toBe(false)
+		})
+
+		it('does not restart after abort() in continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const startCallsBefore = mockInstance(wrapper).start.mock.calls.length
+			wrapper.abort()
+			expect(mockInstance(wrapper).start.mock.calls.length).toBe(startCallsBefore)
+			expect(wrapper.isRecording).toBe(false)
+		})
+
+		it('sets isRecording to false when auto-restart throws', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			mockInstance(wrapper).start.mockImplementationOnce(() => {
+				throw new DOMException('already started', 'InvalidStateError')
+			})
+			fireEnd(wrapper)
+			expect(wrapper.isRecording).toBe(false)
+		})
+
+		it('resumes auto-restart after start() is called again following an explicit stop', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream')
+				.mockResolvedValueOnce(mockStream)
+				.mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			wrapper.stop()
+			await wrapper.start()
+			const startCallsBefore = mockInstance(wrapper).start.mock.calls.length
+			fireEnd(wrapper)
+			expect(mockInstance(wrapper).start.mock.calls.length).toBe(startCallsBefore + 1)
+			expect(wrapper.isRecording).toBe(true)
 		})
 	})
 

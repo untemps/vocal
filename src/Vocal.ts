@@ -68,8 +68,18 @@ class Vocal {
 	private _instance: SpeechRecognition | null = null
 	private _listeners: Record<string, Array<{ callback: EventHandler; handler: EventHandler }>> = {}
 	private _isRecording: boolean = false
+	private _continuous: boolean = false
+	private _explicitStop: boolean = false
 	private _onEnd: () => void = () => {
-		this._isRecording = false
+		if (!this._explicitStop && this._continuous) {
+			try {
+				this._instance?.start()
+			} catch {
+				this._isRecording = false
+			}
+		} else {
+			this._isRecording = false
+		}
 	}
 
 	constructor(options?: VocalOptions) {
@@ -84,6 +94,8 @@ class Vocal {
 			...Vocal.defaultOptions,
 			...(options ?? {}),
 		}
+
+		this._continuous = rest.continuous
 
 		const instance = this._instance as unknown as Record<string, unknown>
 		Object.assign(instance, rest)
@@ -117,6 +129,7 @@ class Vocal {
 				if (!stream) {
 					throw new Error('Unable to retrieve the stream from media device')
 				}
+				this._explicitStop = false
 				this._instance.start()
 				this._isRecording = true
 			} catch (error) {
@@ -130,6 +143,7 @@ class Vocal {
 
 	stop(): this {
 		if (this._instance) {
+			this._explicitStop = true
 			this._instance.stop()
 			this._isRecording = false
 		}
@@ -139,6 +153,7 @@ class Vocal {
 
 	abort(): this {
 		if (this._instance) {
+			this._explicitStop = true
 			this._instance.abort()
 			this._isRecording = false
 		}
