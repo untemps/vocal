@@ -87,6 +87,13 @@ function buildOptions() {
 	}
 }
 
+// ── Permission ────────────────────────────────────────────────────────────────
+
+async function ensurePermission(): Promise<void> {
+	const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+	stream.getTracks().forEach((t) => t.stop())
+}
+
 // ── Vocal lifecycle ───────────────────────────────────────────────────────────
 
 function initVocal() {
@@ -171,6 +178,7 @@ $btnReinit.addEventListener('click', () => {
 $btnStart.addEventListener('click', async () => {
 	if (!vocal) return
 	try {
+		await ensurePermission()
 		await vocal.start()
 	} catch (e) {
 		log('error', String(e))
@@ -207,6 +215,7 @@ $btnOnce.addEventListener('click', async () => {
 		updateStatus()
 	})
 	try {
+		await ensurePermission()
 		await vocal.start()
 	} catch (e) {
 		log('error', String(e))
@@ -229,6 +238,7 @@ $btnAbortSignal.addEventListener('click', async () => {
 	}, 3000)
 
 	try {
+		await ensurePermission()
 		await vocal.start({ signal: controller.signal })
 	} catch (e) {
 		clearTimeout(timer)
