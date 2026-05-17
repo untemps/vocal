@@ -104,6 +104,7 @@
 		]
 	},
 	"scripts": {
+		"dev": "vite --config vite.dev.config.js",
 		"test": "vitest",
 		"test:ci": "vitest run --coverage",
 		"build": "vite build",

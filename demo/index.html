@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Vocal — Dev Demo</title>
+		<style>
+			*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+			:root {
+				--bg: #0f0f13;
+				--surface: #1a1a24;
+				--border: #2e2e42;
+				--accent: #6c63ff;
+				--accent-hover: #8b85ff;
+				--danger: #ff5f5f;
+				--warn: #ffaa33;
+				--success: #4ade80;
+				--text: #e2e2f0;
+				--muted: #7070a0;
+				--radius: 8px;
+				--font: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+			}
+
+			body {
+				font-family: var(--font);
+				background: var(--bg);
+				color: var(--text);
+				min-height: 100vh;
+				padding: 24px;
+				font-size: 13px;
+			}
+
+			h1 {
+				font-size: 20px;
+				font-weight: 600;
+				margin-bottom: 4px;
+				color: #fff;
+			}
+
+			.subtitle {
+				color: var(--muted);
+				font-size: 12px;
+				margin-bottom: 24px;
+			}
+
+			.grid {
+				display: grid;
+				grid-template-columns: 320px 1fr;
+				gap: 16px;
+				max-width: 1100px;
+			}
+
+			.col { display: flex; flex-direction: column; gap: 16px; }
+
+			.card {
+				background: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				padding: 16px;
+			}
+
+			.card-title {
+				font-size: 11px;
+				font-weight: 600;
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+				color: var(--muted);
+				margin-bottom: 12px;
+			}
+
+			/* Status */
+			.status-row {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin-bottom: 8px;
+			}
+
+			.status-row:last-child { margin-bottom: 0; }
+
+			.badge {
+				font-size: 11px;
+				padding: 2px 8px;
+				border-radius: 100px;
+				font-weight: 600;
+			}
+
+			.badge.yes { background: #1a3a2a; color: var(--success); }
+			.badge.no  { background: #3a1a1a; color: var(--danger); }
+			.badge.recording { background: #2a1a3a; color: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+
+			@keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:.5; } }
+
+			/* Config */
+			label {
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				margin-bottom: 10px;
+				color: var(--muted);
+				font-size: 11px;
+			}
+
+			label:last-child { margin-bottom: 0; }
+
+			select, input[type="number"], input[type="text"] {
+				background: var(--bg);
+				border: 1px solid var(--border);
+				border-radius: 4px;
+				color: var(--text);
+				padding: 6px 8px;
+				font-family: var(--font);
+				font-size: 12px;
+				width: 100%;
+			}
+
+			.checkbox-row {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				margin-bottom: 10px;
+				font-size: 12px;
+				color: var(--text);
+				cursor: pointer;
+			}
+
+			.checkbox-row input { width: 14px; height: 14px; cursor: pointer; }
+
+			/* Controls */
+			.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+			button {
+				font-family: var(--font);
+				font-size: 12px;
+				font-weight: 600;
+				padding: 7px 14px;
+				border-radius: 5px;
+				border: 1px solid transparent;
+				cursor: pointer;
+				transition: background 0.15s, opacity 0.15s;
+			}
+
+			button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+			.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+			.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+			.btn-secondary { background: transparent; color: var(--text); border-color: var(--border); }
+			.btn-secondary:hover:not(:disabled) { background: var(--border); }
+			.btn-danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+			.btn-danger:hover:not(:disabled) { background: #3a1a1a; }
+			.btn-warn { background: transparent; color: var(--warn); border-color: var(--warn); }
+			.btn-warn:hover:not(:disabled) { background: #3a2a1a; }
+
+			/* Abort timer */
+			#abort-info {
+				margin-top: 10px;
+				font-size: 11px;
+				color: var(--muted);
+				min-height: 16px;
+			}
+
+			/* Results */
+			.result-transcript {
+				font-size: 16px;
+				color: #fff;
+				min-height: 28px;
+				margin-bottom: 8px;
+				word-break: break-word;
+			}
+
+			.result-alternatives {
+				font-size: 11px;
+				color: var(--muted);
+				min-height: 16px;
+			}
+
+			/* Log */
+			#log {
+				height: 360px;
+				overflow-y: auto;
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+			}
+
+			.log-entry {
+				display: flex;
+				gap: 8px;
+				align-items: flex-start;
+				font-size: 11px;
+				padding: 4px 6px;
+				border-radius: 4px;
+				background: var(--bg);
+				border-left: 3px solid var(--border);
+			}
+
+			.log-entry.event-result  { border-color: var(--success); }
+			.log-entry.event-error   { border-color: var(--danger); }
+			.log-entry.event-start   { border-color: var(--accent); }
+			.log-entry.event-end     { border-color: var(--muted); }
+			.log-entry.event-nomatch { border-color: var(--warn); }
+
+			.log-time { color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+			.log-type { font-weight: 700; white-space: nowrap; flex-shrink: 0; min-width: 80px; }
+			.log-msg  { color: var(--muted); word-break: break-all; }
+
+			.log-entry.event-result  .log-type { color: var(--success); }
+			.log-entry.event-error   .log-type { color: var(--danger); }
+			.log-entry.event-start   .log-type { color: var(--accent); }
+			.log-entry.event-end     .log-type { color: var(--muted); }
+			.log-entry.event-nomatch .log-type { color: var(--warn); }
+
+			.log-empty { color: var(--muted); font-size: 11px; text-align: center; padding: 24px 0; }
+
+			.log-actions {
+				display: flex;
+				justify-content: flex-end;
+				margin-top: 8px;
+			}
+
+			/* Unsupported overlay */
+			.unsupported {
+				background: #3a1a1a;
+				border: 1px solid var(--danger);
+				border-radius: var(--radius);
+				padding: 16px;
+				color: var(--danger);
+				margin-bottom: 16px;
+				font-size: 12px;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Vocal</h1>
+		<p class="subtitle">SpeechRecognition wrapper — dev demo</p>
+
+		<div id="unsupported-banner" class="unsupported" style="display:none">
+			SpeechRecognition not supported in this browser. Try Chrome or Edge.
+		</div>
+
+		<div class="grid">
+			<!-- Left column -->
+			<div class="col">
+				<!-- Status -->
+				<div class="card">
+					<div class="card-title">Status</div>
+					<div class="status-row">
+						<span>isSupported</span>
+						<span id="status-supported" class="badge no">false</span>
+					</div>
+					<div class="status-row">
+						<span>isRecording</span>
+						<span id="status-recording" class="badge no">false</span>
+					</div>
+					<div class="status-row">
+						<span>instance</span>
+						<span id="status-instance" class="badge no">null</span>
+					</div>
+				</div>
+
+				<!-- Config -->
+				<div class="card">
+					<div class="card-title">Options</div>
+					<label>
+						lang
+						<input type="text" id="opt-lang" value="fr-FR" />
+					</label>
+					<label>
+						maxAlternatives
+						<input type="number" id="opt-maxalt" value="3" min="1" max="10" />
+					</label>
+					<label class="checkbox-row">
+						<input type="checkbox" id="opt-continuous" />
+						continuous
+					</label>
+					<label class="checkbox-row">
+						<input type="checkbox" id="opt-interim" />
+						interimResults
+					</label>
+					<button class="btn-secondary" id="btn-reinit" style="width:100%;margin-top:4px">Reinitialise</button>
+				</div>
+
+				<!-- Controls -->
+				<div class="card">
+					<div class="card-title">Controls</div>
+					<div class="btn-group">
+						<button class="btn-primary" id="btn-start">Start</button>
+						<button class="btn-secondary" id="btn-stop" disabled>Stop</button>
+						<button class="btn-danger" id="btn-abort" disabled>Abort</button>
+						<button class="btn-secondary" id="btn-cleanup" disabled>Cleanup</button>
+					</div>
+				</div>
+
+				<!-- Once -->
+				<div class="card">
+					<div class="card-title">once()</div>
+					<p style="color:var(--muted);font-size:11px;margin-bottom:10px">Écoute un seul résultat puis se désenregistre automatiquement.</p>
+					<button class="btn-warn" id="btn-once" style="width:100%">Start + listen once</button>
+				</div>
+
+				<!-- AbortSignal -->
+				<div class="card">
+					<div class="card-title">AbortSignal</div>
+					<p style="color:var(--muted);font-size:11px;margin-bottom:10px">Démarre et annule via AbortController après 3s.</p>
+					<button class="btn-warn" id="btn-abort-signal" style="width:100%">Start with 3s abort</button>
+					<div id="abort-info"></div>
+				</div>
+			</div>
+
+			<!-- Right column -->
+			<div class="col">
+				<!-- Result -->
+				<div class="card">
+					<div class="card-title">Last result</div>
+					<div class="result-transcript" id="result-transcript">—</div>
+					<div class="result-alternatives" id="result-alternatives"></div>
+				</div>
+
+				<!-- Log -->
+				<div class="card" style="flex:1">
+					<div class="card-title">Events log</div>
+					<div id="log"><div class="log-empty">No events yet.</div></div>
+					<div class="log-actions">
+						<button class="btn-secondary" id="btn-clear-log" style="font-size:11px;padding:4px 10px">Clear</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script type="module" src="./main.ts"></script>
+	</body>
+</html>
