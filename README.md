@@ -62,7 +62,7 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | ---------------- | ----------------- | ---------- | ----------------------------------------------------------------------------------------------------------------- |
 | grammars         | SpeechGrammarList | null       | Grammars understood by the recognition [JSpeech Grammar Format](https://www.w3.org/TR/jsgf/)                      |
 | lang             | string            | 'en-US'    | Language understood by the recognition [BCP 47 language tag](https://tools.ietf.org/html/bcp47)                   |
-| continuous       | boolean           | false      | Whether continuous results are returned for each recognition, or only a single result                             |
+| continuous       | boolean           | false      | Whether continuous results are returned for each recognition, or only a single result. When `true`, recognition automatically restarts after silence timeouts — call `stop()` or `abort()` to end the session explicitly |
 | interimResults   | boolean           | false      | Whether interim results should be returned or not. Interim results are results that are not yet final             |
 | maxAlternatives  | number            | 1          | Maximum number of SpeechRecognitionAlternatives provided per result                                               |
 
@@ -90,7 +90,7 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | Getter      | Type                      | Description                                                                                                          |
 | ----------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | isSupported | boolean                   | Whether the current environment supports the SpeechRecognition Web API (static)                                      |
-| isRecording | boolean                   | Whether recognition is currently active — `true` after `start()`, `false` after `stop()`, `abort()`, or `end` event |
+| isRecording | boolean                   | Whether recognition is currently active — `true` after `start()`, `false` after `stop()`, `abort()`, or `end` event in non-continuous mode |
 
 ## Methods
 
