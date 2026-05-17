@@ -139,6 +139,7 @@
 			.checkbox-row input { width: 14px; height: 14px; cursor: pointer; }
 
 			.checkbox-group { display: flex; gap: 16px; }
+			.checkbox-group .checkbox-row { margin-bottom: 0; }
 
 			.grow { flex: 1; }
 
@@ -351,11 +352,11 @@
 							<input type="number" id="opt-maxalt" value="3" min="1" max="10" />
 						</label>
 						<div class="checkbox-group">
-							<label class="checkbox-row" style="margin-bottom:0">
+							<label class="checkbox-row">
 								<input type="checkbox" id="opt-continuous" />
 								continuous
 							</label>
-							<label class="checkbox-row" style="margin-bottom:0">
+							<label class="checkbox-row">
 								<input type="checkbox" id="opt-interim" />
 								interimResults
 							</label>

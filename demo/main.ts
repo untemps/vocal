@@ -57,7 +57,7 @@ function log(type: string, msg = '') {
 }
 
 function setAlternatives(alts: string[], label = 'Alternatives') {
-	$alternatives.innerHTML = ''
+	$alternatives.replaceChildren()
 	if (alts.length <= 1) return
 	const heading = document.createElement('div')
 	heading.className = 'alternatives-label'
@@ -102,8 +102,6 @@ function buildOptions() {
 		interimResults: $optInterim.checked,
 	}
 }
-
-// ── Permission ────────────────────────────────────────────────────────────────
 
 // ── Vocal lifecycle ───────────────────────────────────────────────────────────
 
@@ -200,5 +198,8 @@ $btnCleanup.addEventListener('click', () => {
 })
 
 $btnClearLog.addEventListener('click', () => {
-	$log.innerHTML = '<div class="log-empty">No events yet.</div>'
+	const empty = document.createElement('div')
+	empty.className = 'log-empty'
+	empty.textContent = 'No events yet.'
+	$log.replaceChildren(empty)
 })
