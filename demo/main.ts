@@ -139,6 +139,16 @@ function initVocal() {
 	updateStatus()
 }
 
+// ── Collapsible panels (force open on desktop) ────────────────────────────────
+
+function syncCollapsible() {
+	document.querySelectorAll<HTMLDetailsElement>('details.collapsible').forEach((el) => {
+		if (window.innerWidth > 768) el.open = true
+	})
+}
+syncCollapsible()
+window.addEventListener('resize', syncCollapsible)
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 if (!Vocal.isSupported) {

@@ -219,6 +219,52 @@
 				margin-top: 8px;
 			}
 
+			/* Collapsible */
+			details.collapsible > .collapsible-summary { display: none; }
+
+			@media (min-width: 769px) {
+				details.collapsible { display: contents; }
+			}
+
+			@media (max-width: 768px) {
+				details.collapsible {
+					background: var(--surface);
+					border: 1px solid var(--border);
+					border-radius: var(--radius);
+					overflow: hidden;
+				}
+
+				details.collapsible > .card {
+					border-left: none;
+					border-right: none;
+					border-radius: 0;
+					border-top: 1px solid var(--border);
+					border-bottom: none;
+				}
+
+				.collapsible-summary {
+					display: flex;
+					justify-content: space-between;
+					align-items: center;
+					padding: 12px 16px;
+					min-height: 44px;
+					cursor: pointer;
+					list-style: none;
+					font-size: 11px;
+					font-weight: 600;
+					text-transform: uppercase;
+					letter-spacing: 0.08em;
+					color: var(--muted);
+					user-select: none;
+				}
+
+				.collapsible-summary::-webkit-details-marker { display: none; }
+				.collapsible-summary::after { content: '▾'; font-size: 14px; }
+				details.collapsible[open] > .collapsible-summary::after { content: '▴'; }
+
+				.mobile-hidden { display: none; }
+			}
+
 			/* Responsive */
 			@media (max-width: 768px) {
 				body { padding: 16px; }
@@ -256,40 +302,45 @@
 		<div class="grid">
 			<!-- Left column -->
 			<div class="col">
-				<!-- Status -->
-				<div class="card">
-					<div class="card-title">Status</div>
-					<div class="status-row">
-						<span>isSupported</span>
-						<span id="status-supported" class="badge no">false</span>
-					</div>
-					<div class="status-row">
-						<span>isRecording</span>
-						<span id="status-recording" class="badge no">false</span>
-					</div>
-				</div>
+				<!-- Status + Options collapsible -->
+				<details class="collapsible" id="panel-config">
+					<summary class="collapsible-summary">Status &amp; Options</summary>
 
-				<!-- Config -->
-				<div class="card">
-					<div class="card-title">Options</div>
-					<label>
-						lang
-						<input type="text" id="opt-lang" value="fr-FR" />
-					</label>
-					<label>
-						maxAlternatives
-						<input type="number" id="opt-maxalt" value="3" min="1" max="10" />
-					</label>
-					<label class="checkbox-row">
-						<input type="checkbox" id="opt-continuous" />
-						continuous
-					</label>
-					<label class="checkbox-row">
-						<input type="checkbox" id="opt-interim" />
-						interimResults
-					</label>
-					<button class="btn-secondary" id="btn-reinit" style="width:100%;margin-top:4px">Reinitialise</button>
-				</div>
+					<!-- Status -->
+					<div class="card">
+						<div class="card-title">Status</div>
+						<div class="status-row">
+							<span>isSupported</span>
+							<span id="status-supported" class="badge no">false</span>
+						</div>
+						<div class="status-row">
+							<span>isRecording</span>
+							<span id="status-recording" class="badge no">false</span>
+						</div>
+					</div>
+
+					<!-- Config -->
+					<div class="card">
+						<div class="card-title">Options</div>
+						<label>
+							lang
+							<input type="text" id="opt-lang" value="fr-FR" />
+						</label>
+						<label>
+							maxAlternatives
+							<input type="number" id="opt-maxalt" value="3" min="1" max="10" />
+						</label>
+						<label class="checkbox-row">
+							<input type="checkbox" id="opt-continuous" />
+							continuous
+						</label>
+						<label class="checkbox-row">
+							<input type="checkbox" id="opt-interim" />
+							interimResults
+						</label>
+						<button class="btn-secondary" id="btn-reinit" style="width:100%;margin-top:4px">Reinitialise</button>
+					</div>
+				</details>
 
 				<!-- Controls -->
 				<div class="card">
@@ -305,14 +356,14 @@
 				<!-- Once -->
 				<div class="card">
 					<div class="card-title">once()</div>
-					<p style="color:var(--muted);font-size:11px;margin-bottom:10px">Écoute un seul résultat puis se désenregistre automatiquement.</p>
+					<p class="mobile-hidden" style="color:var(--muted);font-size:11px;margin-bottom:10px">Écoute un seul résultat puis se désenregistre automatiquement.</p>
 					<button class="btn-warn" id="btn-once" style="width:100%">Start + listen once</button>
 				</div>
 
 				<!-- AbortSignal -->
 				<div class="card">
 					<div class="card-title">AbortSignal</div>
-					<p style="color:var(--muted);font-size:11px;margin-bottom:10px">Démarre et annule via AbortController après 3s.</p>
+					<p class="mobile-hidden" style="color:var(--muted);font-size:11px;margin-bottom:10px">Démarre et annule via AbortController après 3s.</p>
 					<button class="btn-warn" id="btn-abort-signal" style="width:100%">Start with 3s abort</button>
 					<div id="abort-info"></div>
 				</div>
