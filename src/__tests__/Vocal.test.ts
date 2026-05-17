@@ -249,6 +249,39 @@ describe('Vocal', () => {
 			expect(mockInstance(wrapper).start.mock.calls.length).toBe(startCallsBefore + 1)
 			expect(wrapper.isRecording).toBe(true)
 		})
+
+		it('does not call user end listener during auto-restart in continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const onEnd = vi.fn()
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			wrapper.addEventListener('end', onEnd)
+			fireEnd(wrapper)
+			expect(onEnd).not.toHaveBeenCalled()
+		})
+
+		it('calls user end listener when auto-restart throws in continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const onEnd = vi.fn()
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			wrapper.addEventListener('end', onEnd)
+			mockInstance(wrapper).start.mockImplementationOnce(() => {
+				throw new DOMException('already started', 'InvalidStateError')
+			})
+			fireEnd(wrapper)
+			expect(onEnd).toHaveBeenCalled()
+		})
+
+		it('calls user end listener on explicit stop in continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const onEnd = vi.fn()
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			wrapper.addEventListener('end', onEnd)
+			wrapper.stop()
+			expect(onEnd).toHaveBeenCalled()
+		})
 	})
 
 	describe('start', () => {

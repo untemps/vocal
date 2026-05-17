@@ -70,10 +70,13 @@ class Vocal {
 	private _isRecording: boolean = false
 	private _continuous: boolean = false
 	private _explicitStop: boolean = false
+	private _restarting: boolean = false
 	private _onEnd: () => void = () => {
+		this._restarting = false
 		if (!this._explicitStop && this._continuous) {
 			try {
 				this._instance?.start()
+				this._restarting = true
 			} catch {
 				this._isRecording = false
 			}
@@ -168,6 +171,7 @@ class Vocal {
 		}
 		if (this._instance) {
 			const handler: EventHandler = (event) => {
+				if (eventType === Vocal.eventTypes.END && this._restarting) return
 				const additionalArgs: unknown[] = []
 				if (eventType === Vocal.eventTypes.RESULT) {
 					const speechEvent = event as SpeechRecognitionEvent
