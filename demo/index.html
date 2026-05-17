@@ -219,6 +219,20 @@
 				margin-top: 8px;
 			}
 
+			/* Responsive */
+			@media (max-width: 768px) {
+				body { padding: 16px; }
+
+				.grid { grid-template-columns: 1fr; }
+
+				button { padding: 10px 16px; min-height: 44px; }
+
+				.btn-group { gap: 10px; }
+				.btn-group button { flex: 1; min-width: 0; }
+
+				#log { height: 240px; }
+			}
+
 			/* Unsupported overlay */
 			.unsupported {
 				background: #3a1a1a;
