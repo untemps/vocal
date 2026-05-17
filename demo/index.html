@@ -220,10 +220,9 @@
 			}
 
 			/* Collapsible */
-			details.collapsible > .collapsible-summary { display: none; }
-
 			@media (min-width: 769px) {
 				details.collapsible { display: contents; }
+				details.collapsible > .collapsible-summary { display: none; }
 			}
 
 			@media (max-width: 768px) {
@@ -261,8 +260,6 @@
 				.collapsible-summary::-webkit-details-marker { display: none; }
 				.collapsible-summary::after { content: '▾'; font-size: 14px; }
 				details.collapsible[open] > .collapsible-summary::after { content: '▴'; }
-
-				.mobile-hidden { display: none; }
 			}
 
 			/* Responsive */
@@ -356,14 +353,12 @@
 				<!-- Once -->
 				<div class="card">
 					<div class="card-title">once()</div>
-					<p class="mobile-hidden" style="color:var(--muted);font-size:11px;margin-bottom:10px">Écoute un seul résultat puis se désenregistre automatiquement.</p>
 					<button class="btn-warn" id="btn-once" style="width:100%">Start + listen once</button>
 				</div>
 
 				<!-- AbortSignal -->
 				<div class="card">
 					<div class="card-title">AbortSignal</div>
-					<p class="mobile-hidden" style="color:var(--muted);font-size:11px;margin-bottom:10px">Démarre et annule via AbortController après 3s.</p>
 					<button class="btn-warn" id="btn-abort-signal" style="width:100%">Start with 3s abort</button>
 					<div id="abort-info"></div>
 				</div>
