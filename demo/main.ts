@@ -4,7 +4,6 @@ import { Vocal } from '../src/index'
 
 const $supported   = document.getElementById('status-supported')!
 const $recording   = document.getElementById('status-recording')!
-const $instance    = document.getElementById('status-instance')!
 const $transcript  = document.getElementById('result-transcript')!
 const $alternatives = document.getElementById('result-alternatives')!
 const $log         = document.getElementById('log')!
@@ -56,10 +55,8 @@ function updateStatus() {
 	if (vocal) {
 		const recording = vocal.isRecording
 		setBadge($recording, recording, recording ? 'recording' : undefined)
-		setBadge($instance, true, undefined, 'active', 'null')
 	} else {
 		setBadge($recording, false)
-		setBadge($instance, false, undefined, 'active', 'null')
 	}
 
 	$btnStart.disabled   = !vocal || vocal.isRecording
