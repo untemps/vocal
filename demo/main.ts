@@ -89,15 +89,9 @@ function updateStatus() {
 	$btnCleanup.disabled = !vocal
 }
 
-function setBadge(
-	el: HTMLElement,
-	value: boolean,
-	trueClass?: string,
-	trueLabel = 'true',
-	falseLabel = 'false'
-) {
+function setBadge(el: HTMLElement, value: boolean, trueClass?: string) {
 	el.className = `badge ${value ? (trueClass ?? 'yes') : 'no'}`
-	el.textContent = value ? trueLabel : falseLabel
+	el.textContent = String(value)
 }
 
 function buildOptions() {
@@ -111,6 +105,8 @@ function buildOptions() {
 
 // ── Permission ────────────────────────────────────────────────────────────────
 
+// Chrome requires an explicit getUserMedia call before SpeechRecognition.start()
+// to ensure the mic permission is granted — without it, recognition silently fails.
 async function ensurePermission(): Promise<void> {
 	const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 	stream.getTracks().forEach((t) => t.stop())
@@ -205,6 +201,8 @@ $btnAbort.addEventListener('click', () => {
 })
 
 $btnCleanup.addEventListener('click', () => {
+	vocal?.cleanup()
+	vocal = null
 	log('cleanup')
 	initVocal()
 })

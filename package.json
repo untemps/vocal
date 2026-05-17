@@ -60,7 +60,7 @@
 		"vitest": "^4.1.5"
 	},
 	"dependencies": {
-		"@untemps/user-permissions-utils": "1.3.3"
+		"@untemps/user-permissions-utils": "^1.3.3"
 	},
 	"release": {
 		"branches": [
