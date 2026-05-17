@@ -2,30 +2,28 @@ import { Vocal } from '../src/index'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
-const $supported   = document.getElementById('status-supported')!
-const $recording   = document.getElementById('status-recording')!
-const $transcript  = document.getElementById('result-transcript')!
+const $supported    = document.getElementById('status-supported')!
+const $recording    = document.getElementById('status-recording')!
+const $transcript   = document.getElementById('result-transcript')!
 const $alternatives = document.getElementById('result-alternatives')!
-const $log         = document.getElementById('log')!
-const $abortInfo   = document.getElementById('abort-info')!
-const $banner      = document.getElementById('unsupported-banner')!
+const $log          = document.getElementById('log')!
+const $banner       = document.getElementById('unsupported-banner')!
 
-const $optLang      = document.getElementById('opt-lang') as HTMLInputElement
-const $optMaxAlt    = document.getElementById('opt-maxalt') as HTMLInputElement
+const $optLang       = document.getElementById('opt-lang') as HTMLInputElement
+const $optMaxAlt     = document.getElementById('opt-maxalt') as HTMLInputElement
 const $optContinuous = document.getElementById('opt-continuous') as HTMLInputElement
-const $optInterim   = document.getElementById('opt-interim') as HTMLInputElement
+const $optInterim    = document.getElementById('opt-interim') as HTMLInputElement
 
-const $btnStart       = document.getElementById('btn-start') as HTMLButtonElement
-const $btnStop        = document.getElementById('btn-stop') as HTMLButtonElement
-const $btnAbort       = document.getElementById('btn-abort') as HTMLButtonElement
-const $btnCleanup     = document.getElementById('btn-cleanup') as HTMLButtonElement
-const $btnReinit      = document.getElementById('btn-reinit') as HTMLButtonElement
-const $btnOnce        = document.getElementById('btn-once') as HTMLButtonElement
-const $btnAbortSignal = document.getElementById('btn-abort-signal') as HTMLButtonElement
-const $btnClearLog    = document.getElementById('btn-clear-log') as HTMLButtonElement
+const $btnStart   = document.getElementById('btn-start') as HTMLButtonElement
+const $btnStop    = document.getElementById('btn-stop') as HTMLButtonElement
+const $btnAbort   = document.getElementById('btn-abort') as HTMLButtonElement
+const $btnCleanup = document.getElementById('btn-cleanup') as HTMLButtonElement
+const $btnReinit  = document.getElementById('btn-reinit') as HTMLButtonElement
+const $btnClearLog = document.getElementById('btn-clear-log') as HTMLButtonElement
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
+const isSupported = Vocal.isSupported
 let vocal: Vocal | null = null
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -40,17 +38,43 @@ function log(type: string, msg = '') {
 
 	const entry = document.createElement('div')
 	entry.className = `log-entry event-${type}`
-	entry.innerHTML = `
-		<span class="log-time">${time()}</span>
-		<span class="log-type">${type}</span>
-		<span class="log-msg">${msg}</span>
-	`
-	$log.prepend(entry)
+
+	const $time = document.createElement('span')
+	$time.className = 'log-time'
+	$time.textContent = time()
+
+	const $type = document.createElement('span')
+	$type.className = 'log-type'
+	$type.textContent = type
+
+	const $msg = document.createElement('span')
+	$msg.className = 'log-msg'
+	$msg.textContent = msg
+
+	entry.append($time, $type, $msg)
+	$log.appendChild(entry)
+	$log.scrollTop = $log.scrollHeight
+}
+
+function setAlternatives(alts: string[], label = 'Alternatives') {
+	$alternatives.innerHTML = ''
+	if (alts.length <= 1) return
+	const heading = document.createElement('div')
+	heading.className = 'alternatives-label'
+	heading.textContent = label
+	const ul = document.createElement('ul')
+	ul.className = 'alternatives-list'
+	alts.slice(1).forEach((a) => {
+		const li = document.createElement('li')
+		li.textContent = a
+		ul.appendChild(li)
+	})
+	$alternatives.appendChild(heading)
+	$alternatives.appendChild(ul)
 }
 
 function updateStatus() {
-	const supported = Vocal.isSupported
-	setBadge($supported, supported)
+	setBadge($supported, isSupported)
 
 	if (vocal) {
 		const recording = vocal.isRecording
@@ -63,8 +87,6 @@ function updateStatus() {
 	$btnStop.disabled    = !vocal || !vocal.isRecording
 	$btnAbort.disabled   = !vocal || !vocal.isRecording
 	$btnCleanup.disabled = !vocal
-	$btnOnce.disabled    = !vocal || vocal.isRecording
-	$btnAbortSignal.disabled = !vocal || vocal.isRecording
 }
 
 function setBadge(
@@ -96,30 +118,22 @@ async function ensurePermission(): Promise<void> {
 
 // ── Vocal lifecycle ───────────────────────────────────────────────────────────
 
+function logEvent(type: string) {
+	return () => { log(type); updateStatus() }
+}
+
 function initVocal() {
 	if (vocal) {
 		vocal.cleanup()
 		vocal = null
 	}
 
-	vocal = new Vocal(buildOptions())
-
-	vocal.addEventListener('start', () => {
-		log('start')
-		updateStatus()
-	})
-
-	vocal.addEventListener('end', () => {
-		log('end')
-		updateStatus()
-	})
+	const options = buildOptions()
+	vocal = new Vocal(options)
 
 	vocal.addEventListener('result', (_, best, alts) => {
 		$transcript.textContent = best as string
-		const alternatives = alts as string[]
-		$alternatives.textContent = alternatives.length > 1
-			? `Alternatives: ${alternatives.slice(1).join(' · ')}`
-			: ''
+		setAlternatives(alts as string[])
 		log('result', best as string)
 		updateStatus()
 	})
@@ -130,19 +144,17 @@ function initVocal() {
 		updateStatus()
 	})
 
-	vocal.addEventListener('nomatch', () => {
-		log('nomatch')
-		updateStatus()
-	})
+	vocal.addEventListener('start',       logEvent('start'))
+	vocal.addEventListener('end',         logEvent('end'))
+	vocal.addEventListener('nomatch',     logEvent('nomatch'))
+	vocal.addEventListener('audiostart',  logEvent('audiostart'))
+	vocal.addEventListener('audioend',    logEvent('audioend'))
+	vocal.addEventListener('soundstart',  logEvent('soundstart'))
+	vocal.addEventListener('soundend',    logEvent('soundend'))
+	vocal.addEventListener('speechstart', logEvent('speechstart'))
+	vocal.addEventListener('speechend',   logEvent('speechend'))
 
-	vocal.addEventListener('audiostart',  () => { log('audiostart');  updateStatus() })
-	vocal.addEventListener('audioend',    () => { log('audioend');    updateStatus() })
-	vocal.addEventListener('soundstart',  () => { log('soundstart');  updateStatus() })
-	vocal.addEventListener('soundend',    () => { log('soundend');    updateStatus() })
-	vocal.addEventListener('speechstart', () => { log('speechstart'); updateStatus() })
-	vocal.addEventListener('speechend',   () => { log('speechend');   updateStatus() })
-
-	log('init', JSON.stringify(buildOptions()))
+	log('init', JSON.stringify(options))
 	updateStatus()
 }
 
@@ -158,22 +170,18 @@ window.addEventListener('resize', syncCollapsible)
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-if (!Vocal.isSupported) {
+if (!isSupported) {
 	$banner.style.display = 'block'
-	;[$btnStart, $btnStop, $btnAbort, $btnCleanup, $btnOnce, $btnAbortSignal, $btnReinit].forEach(
+	;[$btnStart, $btnStop, $btnAbort, $btnCleanup, $btnReinit].forEach(
 		(b) => (b.disabled = true)
 	)
 } else {
 	initVocal()
 }
 
-updateStatus()
-
 // ── Bindings ──────────────────────────────────────────────────────────────────
 
-$btnReinit.addEventListener('click', () => {
-	initVocal()
-})
+$btnReinit.addEventListener('click', initVocal)
 
 $btnStart.addEventListener('click', async () => {
 	if (!vocal) return
@@ -197,56 +205,8 @@ $btnAbort.addEventListener('click', () => {
 })
 
 $btnCleanup.addEventListener('click', () => {
-	vocal?.cleanup()
-	vocal = null
 	log('cleanup')
-	updateStatus()
-})
-
-$btnOnce.addEventListener('click', async () => {
-	if (!vocal) return
-	vocal.once('result', (_, best, alts) => {
-		$transcript.textContent = best as string
-		const alternatives = alts as string[]
-		$alternatives.textContent = alternatives.length > 1
-			? `once() alternatives: ${alternatives.slice(1).join(' · ')}`
-			: ''
-		log('result [once]', best as string)
-		updateStatus()
-	})
-	try {
-		await ensurePermission()
-		await vocal.start()
-	} catch (e) {
-		log('error', String(e))
-	}
-	updateStatus()
-})
-
-$btnAbortSignal.addEventListener('click', async () => {
-	if (!vocal) return
-	const controller = new AbortController()
-	$abortInfo.textContent = 'Abort dans 3s...'
-	$btnAbortSignal.disabled = true
-
-	const timer = setTimeout(() => {
-		controller.abort()
-		$abortInfo.textContent = 'Aborted via AbortSignal.'
-		$btnAbortSignal.disabled = false
-		log('abort-signal', 'AbortController.abort() appelé après 3s')
-		updateStatus()
-	}, 3000)
-
-	try {
-		await ensurePermission()
-		await vocal.start({ signal: controller.signal })
-	} catch (e) {
-		clearTimeout(timer)
-		$abortInfo.textContent = ''
-		$btnAbortSignal.disabled = false
-		log('error', String(e))
-	}
-	updateStatus()
+	initVocal()
 })
 
 $btnClearLog.addEventListener('click', () => {

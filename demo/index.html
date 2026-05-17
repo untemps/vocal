@@ -69,6 +69,15 @@
 				margin-bottom: 12px;
 			}
 
+			.card-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin-bottom: 12px;
+			}
+
+			.card-header .card-title { margin-bottom: 0; }
+
 			/* Status */
 			.status-row {
 				display: flex;
@@ -95,14 +104,16 @@
 			/* Config */
 			label {
 				display: flex;
-				flex-direction: column;
-				gap: 4px;
+				flex-direction: row;
+				align-items: center;
+				justify-content: space-between;
+				gap: 8px;
 				margin-bottom: 10px;
 				color: var(--muted);
 				font-size: 11px;
 			}
 
-			label:last-child { margin-bottom: 0; }
+			label input[type="text"], label input[type="number"] { width: 120px; flex-shrink: 0; }
 
 			select, input[type="number"], input[type="text"] {
 				background: var(--bg);
@@ -129,6 +140,7 @@
 
 			/* Controls */
 			.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+			.btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
 			button {
 				font-family: var(--font);
@@ -149,16 +161,7 @@
 			.btn-secondary:hover:not(:disabled) { background: var(--border); }
 			.btn-danger { background: transparent; color: var(--danger); border-color: var(--danger); }
 			.btn-danger:hover:not(:disabled) { background: #3a1a1a; }
-			.btn-warn { background: transparent; color: var(--warn); border-color: var(--warn); }
-			.btn-warn:hover:not(:disabled) { background: #3a2a1a; }
-
-			/* Abort timer */
-			#abort-info {
-				margin-top: 10px;
-				font-size: 11px;
-				color: var(--muted);
-				min-height: 16px;
-			}
+			.btn-xs { font-size: 11px; padding: 4px 10px; }
 
 			/* Results */
 			.result-transcript {
@@ -173,6 +176,27 @@
 				font-size: 11px;
 				color: var(--muted);
 				min-height: 16px;
+			}
+
+			.alternatives-label {
+				margin-bottom: 4px;
+				font-weight: 600;
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
+				font-size: 10px;
+			}
+
+			.alternatives-list {
+				list-style: none;
+				display: flex;
+				flex-direction: column;
+				gap: 3px;
+			}
+
+			.alternatives-list li::before {
+				content: '–';
+				margin-right: 6px;
+				color: var(--border);
 			}
 
 			/* Log */
@@ -213,12 +237,6 @@
 
 			.log-empty { color: var(--muted); font-size: 11px; text-align: center; padding: 24px 0; }
 
-			.log-actions {
-				display: flex;
-				justify-content: flex-end;
-				margin-top: 8px;
-			}
-
 			/* Collapsible */
 			@media (min-width: 769px) {
 				details.collapsible { display: contents; }
@@ -226,6 +244,18 @@
 			}
 
 			@media (max-width: 768px) {
+				body { padding: 16px; }
+
+				.grid { grid-template-columns: 1fr; }
+
+				button { padding: 10px 16px; min-height: 44px; }
+
+				.btn-group { gap: 10px; }
+				.btn-group button { flex: 1; min-width: 0; }
+				.btn-grid { gap: 10px; }
+
+				#log { height: 240px; }
+
 				details.collapsible {
 					background: var(--surface);
 					border: 1px solid var(--border);
@@ -262,20 +292,6 @@
 				details.collapsible[open] > .collapsible-summary::after { content: '▴'; }
 			}
 
-			/* Responsive */
-			@media (max-width: 768px) {
-				body { padding: 16px; }
-
-				.grid { grid-template-columns: 1fr; }
-
-				button { padding: 10px 16px; min-height: 44px; }
-
-				.btn-group { gap: 10px; }
-				.btn-group button { flex: 1; min-width: 0; }
-
-				#log { height: 240px; }
-			}
-
 			/* Unsupported overlay */
 			.unsupported {
 				background: #3a1a1a;
@@ -290,7 +306,7 @@
 	</head>
 	<body>
 		<h1>Vocal</h1>
-		<p class="subtitle">SpeechRecognition wrapper — dev demo</p>
+		<p class="subtitle">SpeechRecognition wrapper</p>
 
 		<div id="unsupported-banner" class="unsupported" style="display:none">
 			SpeechRecognition not supported in this browser. Try Chrome or Edge.
@@ -318,7 +334,10 @@
 
 					<!-- Config -->
 					<div class="card">
-						<div class="card-title">Options</div>
+						<div class="card-header">
+							<div class="card-title">Options</div>
+							<button class="btn-secondary btn-xs" id="btn-reinit">Reset</button>
+						</div>
 						<label>
 							lang
 							<input type="text" id="opt-lang" value="fr-FR" />
@@ -327,22 +346,23 @@
 							maxAlternatives
 							<input type="number" id="opt-maxalt" value="3" min="1" max="10" />
 						</label>
-						<label class="checkbox-row">
-							<input type="checkbox" id="opt-continuous" />
-							continuous
-						</label>
-						<label class="checkbox-row">
-							<input type="checkbox" id="opt-interim" />
-							interimResults
-						</label>
-						<button class="btn-secondary" id="btn-reinit" style="width:100%;margin-top:4px">Reinitialise</button>
+						<div style="display:flex;gap:16px">
+							<label class="checkbox-row" style="margin-bottom:0">
+								<input type="checkbox" id="opt-continuous" />
+								continuous
+							</label>
+							<label class="checkbox-row" style="margin-bottom:0">
+								<input type="checkbox" id="opt-interim" />
+								interimResults
+							</label>
+						</div>
 					</div>
 				</details>
 
 				<!-- Controls -->
 				<div class="card">
 					<div class="card-title">Controls</div>
-					<div class="btn-group">
+					<div class="btn-grid">
 						<button class="btn-primary" id="btn-start">Start</button>
 						<button class="btn-secondary" id="btn-stop" disabled>Stop</button>
 						<button class="btn-danger" id="btn-abort" disabled>Abort</button>
@@ -350,18 +370,6 @@
 					</div>
 				</div>
 
-				<!-- Once -->
-				<div class="card">
-					<div class="card-title">once()</div>
-					<button class="btn-warn" id="btn-once" style="width:100%">Start + listen once</button>
-				</div>
-
-				<!-- AbortSignal -->
-				<div class="card">
-					<div class="card-title">AbortSignal</div>
-					<button class="btn-warn" id="btn-abort-signal" style="width:100%">Start with 3s abort</button>
-					<div id="abort-info"></div>
-				</div>
 			</div>
 
 			<!-- Right column -->
@@ -375,11 +383,11 @@
 
 				<!-- Log -->
 				<div class="card" style="flex:1">
-					<div class="card-title">Events log</div>
-					<div id="log"><div class="log-empty">No events yet.</div></div>
-					<div class="log-actions">
-						<button class="btn-secondary" id="btn-clear-log" style="font-size:11px;padding:4px 10px">Clear</button>
+					<div class="card-header">
+						<div class="card-title">Logs</div>
+						<button class="btn-secondary btn-xs" id="btn-clear-log">Clear</button>
 					</div>
+					<div id="log"><div class="log-empty">No events yet.</div></div>
 				</div>
 			</div>
 		</div>

@@ -1200,10 +1200,10 @@
     "@typescript-eslint/types" "8.59.3"
     eslint-visitor-keys "^5.0.0"
 
-"@untemps/user-permissions-utils@^1.3.0":
-  version "1.3.0"
-  resolved "https://registry.yarnpkg.com/@untemps/user-permissions-utils/-/user-permissions-utils-1.3.0.tgz#1538b288309b81cd0535839c439d1e09c648325e"
-  integrity sha512-kSnu+0IO5W8a2Y27Li+eSd0OII6QnKAqQJAD08bmcMHzSQxKFjazyS5VRBezLa+rOBClYCr07nWyw24Pf/Py5Q==
+"@untemps/user-permissions-utils@1.3.3":
+  version "1.3.3"
+  resolved "https://registry.yarnpkg.com/@untemps/user-permissions-utils/-/user-permissions-utils-1.3.3.tgz#406b380bf2a38020ef679b19a3cd7fb070b3ca01"
+  integrity sha512-YYGwoVKRoGUI/Oo9ktMAfA8iHOI3WA9HMVRQGR24bwP7mNvC3Nn+BLfvyUE8uj7q6HAzIqLERUrSRDTPUMtpgw==
 
 "@vitest/coverage-v8@^4.1.5":
   version "4.1.6"
