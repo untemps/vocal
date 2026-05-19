@@ -30,6 +30,8 @@ export type EventHandlerFor<T extends EventType> = T extends 'result'
 
 type EventHandler = (...args: unknown[]) => void
 
+const RESTART_THROTTLE_MS = 1000
+
 class Vocal {
 	static defaultOptions: Required<VocalOptions> = {
 		grammars: null,
@@ -68,8 +70,42 @@ class Vocal {
 	private _instance: SpeechRecognition | null = null
 	private _listeners: Record<string, Array<{ callback: EventHandler; handler: EventHandler }>> = {}
 	private _isRecording: boolean = false
-	private _onEnd: () => void = () => {
+	private _explicitStop: boolean = false
+	private _lastStartedAt: number = 0
+	private _restartTimeoutId: ReturnType<typeof setTimeout> | null = null
+	private _isRestarting: boolean = false
+
+	private _onEnd = (event: Event): void => {
+		if (this._shouldAutoRestart()) {
+			// Workaround Chrome: silence timeout (~7s) forces `end` even with continuous=true.
+			// Restart with throttle to avoid InvalidStateError; swallow the intermediate `end`.
+			const elapsed = Date.now() - this._lastStartedAt
+			const delay = elapsed < RESTART_THROTTLE_MS ? RESTART_THROTTLE_MS - elapsed : 0
+			this._isRestarting = true
+			this._restartTimeoutId = setTimeout(() => this._restart(), delay)
+			event?.stopImmediatePropagation?.()
+			return
+		}
 		this._isRecording = false
+	}
+
+	private _onStart = (event: Event): void => {
+		if (this._isRestarting) {
+			event?.stopImmediatePropagation?.()
+			// Defer reset so user-side 'start' wrappers in the same tick still see the flag and swallow.
+			queueMicrotask(() => {
+				this._isRestarting = false
+			})
+		}
+	}
+
+	private _onError = (event: Event): void => {
+		const errorType = (event as SpeechRecognitionErrorEvent).error
+		if (errorType === 'not-allowed' || errorType === 'service-not-allowed' || errorType === 'audio-capture') {
+			this._explicitStop = true
+			this._clearRestartTimeout()
+			this._isRecording = false
+		}
 	}
 
 	constructor(options?: VocalOptions) {
@@ -96,6 +132,8 @@ class Vocal {
 		}
 
 		this._instance.addEventListener('end', this._onEnd)
+		this._instance.addEventListener('start', this._onStart)
+		this._instance.addEventListener('error', this._onError)
 	}
 
 	get isRecording(): boolean {
@@ -117,8 +155,10 @@ class Vocal {
 				if (!stream) {
 					throw new Error('Unable to retrieve the stream from media device')
 				}
+				this._explicitStop = false
 				this._instance.start()
 				this._isRecording = true
+				this._lastStartedAt = Date.now()
 			} catch (error) {
 				if (error instanceof Error && error.name === 'AbortError') return this
 				throw error
@@ -130,6 +170,8 @@ class Vocal {
 
 	stop(): this {
 		if (this._instance) {
+			this._explicitStop = true
+			this._clearRestartTimeout()
 			this._instance.stop()
 			this._isRecording = false
 		}
@@ -139,6 +181,8 @@ class Vocal {
 
 	abort(): this {
 		if (this._instance) {
+			this._explicitStop = true
+			this._clearRestartTimeout()
 			this._instance.abort()
 			this._isRecording = false
 		}
@@ -153,6 +197,13 @@ class Vocal {
 		}
 		if (this._instance) {
 			const handler: EventHandler = (event) => {
+				// Swallow intermediate end/start emitted by the silent auto-restart cycle.
+				if (
+					this._isRestarting &&
+					(eventType === Vocal.eventTypes.END || eventType === Vocal.eventTypes.START)
+				) {
+					return
+				}
 				const additionalArgs: unknown[] = []
 				if (eventType === Vocal.eventTypes.RESULT) {
 					const speechEvent = event as SpeechRecognitionEvent
@@ -222,9 +273,38 @@ class Vocal {
 
 		Object.keys(this._listeners).forEach((key) => this.removeEventListener(key as EventType))
 		this._instance?.removeEventListener('end', this._onEnd)
+		this._instance?.removeEventListener('start', this._onStart)
+		this._instance?.removeEventListener('error', this._onError)
 		this._instance = null
 
 		return this
+	}
+
+	private _restart = (): void => {
+		this._restartTimeoutId = null
+		try {
+			this._instance!.start()
+			this._lastStartedAt = Date.now()
+		} catch {
+			this._isRestarting = false
+			this._isRecording = false
+		}
+	}
+
+	private _shouldAutoRestart(): boolean {
+		return (
+			!!this._instance &&
+			!this._explicitStop &&
+			!!(this._instance as unknown as { continuous: boolean }).continuous
+		)
+	}
+
+	private _clearRestartTimeout(): void {
+		if (this._restartTimeoutId !== null) {
+			clearTimeout(this._restartTimeoutId)
+			this._restartTimeoutId = null
+		}
+		this._isRestarting = false
 	}
 
 	private _includesEventType(eventType: string): boolean {

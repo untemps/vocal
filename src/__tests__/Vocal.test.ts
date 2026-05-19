@@ -481,6 +481,248 @@ describe('Vocal', () => {
 		})
 	})
 
+	describe('continuous auto-restart', () => {
+		const fireEnd = (instance: MockInstance) => {
+			;(instance.addEventListener.mock.calls as [string, EventListener][])
+				.filter(([type]) => type === 'end')
+				.forEach(([, handler]) => handler(new Event('end')))
+		}
+
+		const fireError = (instance: MockInstance, error: string) => {
+			;(instance.addEventListener.mock.calls as [string, EventListener][])
+				.filter(([type]) => type === 'error')
+				.forEach(([, handler]) => handler(Object.assign(new Event('error'), { error }) as unknown as Event))
+		}
+
+		beforeEach(() => {
+			vi.useFakeTimers()
+		})
+
+		afterEach(() => {
+			vi.useRealTimers()
+		})
+
+		it('restarts the engine after silence end when continuous is true', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+			const initialStartCalls = (instance.start as MockFn).mock.calls.length
+
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls + 1)
+		})
+
+		it('does not restart when continuous is false', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: false })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+			const initialStartCalls = (instance.start as MockFn).mock.calls.length
+
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
+		})
+
+		it('does not restart after explicit stop()', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+			wrapper.stop()
+			const startCallsAfterStop = (instance.start as MockFn).mock.calls.length
+
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(startCallsAfterStop)
+		})
+
+		it('does not restart after explicit abort()', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+			wrapper.abort()
+			const startCallsAfterAbort = (instance.start as MockFn).mock.calls.length
+
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(startCallsAfterAbort)
+		})
+
+		it('throttles restart to at least 1000ms after last start', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+			const initialStartCalls = (instance.start as MockFn).mock.calls.length
+
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(1000 - 1)
+			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
+
+			await vi.advanceTimersByTimeAsync(1)
+			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls + 1)
+		})
+
+		it('restarts immediately when more than 1000ms have elapsed since last start', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+			const initialStartCalls = (instance.start as MockFn).mock.calls.length
+
+			await vi.advanceTimersByTimeAsync(1000 + 500)
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(0)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls + 1)
+		})
+
+		it('cancels the scheduled restart when stop() is called during the throttle window', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+			const initialStartCalls = (instance.start as MockFn).mock.calls.length
+
+			fireEnd(instance)
+			wrapper.stop()
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
+		})
+
+		it('disables auto-restart on not-allowed error', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+			const initialStartCalls = (instance.start as MockFn).mock.calls.length
+
+			fireError(instance, 'not-allowed')
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
+			expect(wrapper.isRecording).toBe(false)
+		})
+
+		it.each(['service-not-allowed', 'audio-capture'])('disables auto-restart on %s error', async (errorType) => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+			const initialStartCalls = (instance.start as MockFn).mock.calls.length
+
+			fireError(instance, errorType)
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
+		})
+
+		it.each(['no-speech', 'network'])('keeps auto-restart active on transient %s error', async (errorType) => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+			const initialStartCalls = (instance.start as MockFn).mock.calls.length
+
+			fireError(instance, errorType)
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls + 1)
+		})
+
+		it('does not propagate intermediate end events to user listeners', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const onEnd = vi.fn()
+			wrapper.addEventListener(Vocal.eventTypes.END, onEnd)
+
+			fireEnd(mockInstance(wrapper))
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect(onEnd).not.toHaveBeenCalled()
+		})
+
+		it('does not propagate the restart start event to user listeners', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const onStart = vi.fn()
+			wrapper.addEventListener(Vocal.eventTypes.START, onStart)
+
+			fireEnd(mockInstance(wrapper))
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect(onStart).not.toHaveBeenCalled()
+		})
+
+		it('still propagates end on explicit stop in continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const onEnd = vi.fn()
+			wrapper.addEventListener(Vocal.eventTypes.END, onEnd)
+
+			wrapper.stop()
+
+			expect(onEnd).toHaveBeenCalledTimes(1)
+		})
+
+		it('keeps isRecording true during the restart window', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+
+			fireEnd(mockInstance(wrapper))
+			expect(wrapper.isRecording).toBe(true)
+
+			await vi.advanceTimersByTimeAsync(1000)
+			expect(wrapper.isRecording).toBe(true)
+		})
+
+		it('cancels the scheduled restart on cleanup()', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+			const initialStartCalls = (instance.start as MockFn).mock.calls.length
+
+			fireEnd(instance)
+			wrapper.cleanup()
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
+		})
+
+		it('resets isRecording when the engine throws on restart', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+
+			fireEnd(instance)
+			;(instance.start as unknown as { mockImplementationOnce: (fn: () => void) => void }).mockImplementationOnce(
+				() => {
+					throw new Error('InvalidStateError')
+				}
+			)
+
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect(wrapper.isRecording).toBe(false)
+		})
+	})
+
 	describe('cleanup', () => {
 		let wrapper: Vocal
 		let instance: MockInstance
@@ -499,12 +741,14 @@ describe('Vocal', () => {
 			wrapper.addEventListener(Vocal.eventTypes.START, vi.fn())
 			wrapper.addEventListener(Vocal.eventTypes.END, vi.fn())
 			wrapper.cleanup()
-			expect(instance.removeEventListener).toHaveBeenCalledTimes(3)
+			expect(instance.removeEventListener).toHaveBeenCalledTimes(5)
 		})
 
-		it('removes the internal end listener on cleanup', () => {
+		it('removes the internal end, start and error listeners on cleanup', () => {
 			wrapper.cleanup()
 			expect(instance.removeEventListener).toHaveBeenCalledWith('end', expect.any(Function))
+			expect(instance.removeEventListener).toHaveBeenCalledWith('start', expect.any(Function))
+			expect(instance.removeEventListener).toHaveBeenCalledWith('error', expect.any(Function))
 		})
 
 		it('nulls the instance', () => {

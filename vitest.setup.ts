@@ -92,13 +92,13 @@ global.SpeechRecognition = vi.fn(function () {
 		}),
 		dispatchEvent: vi.fn(),
 		start: vi.fn(function () {
-			dispatch('start')
+			dispatch('start', new Event('start'))
 		}),
 		stop: vi.fn(function () {
-			dispatch('end')
+			dispatch('end', new Event('end'))
 		}),
 		abort: vi.fn(function () {
-			dispatch('end')
+			dispatch('end', new Event('end'))
 		}),
 		say: vi.fn(function (sentence: string, alternatives?: (string | { transcript: string; confidence: number })[]) {
 			dispatch('speechstart')
