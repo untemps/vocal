@@ -1,3 +1,20 @@
+# [2.0.0-beta.21](https://github.com/untemps/vocal/compare/v2.0.0-beta.20...v2.0.0-beta.21) (2026-05-20)
+
+
+### Code Refactoring
+
+* Remove once() method ([#87](https://github.com/untemps/vocal/issues/87)) ([3748768](https://github.com/untemps/vocal/commit/3748768c33f61ba170f4ffd09ccba23063e5c8c5))
+
+
+### BREAKING CHANGES
+
+* vocal.once(eventType, callback) is removed. Consumers relying on it must replace the call with a manual addEventListener + removeEventListener pair:
+   const handler = (event, best) => {
+      vocal.removeEventListener('result', handler)
+      // ...
+   }
+   vocal.addEventListener('result', handler)
+
 # [2.0.0-beta.20](https://github.com/untemps/vocal/compare/v2.0.0-beta.19...v2.0.0-beta.20) (2026-05-20)
 
 
