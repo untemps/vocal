@@ -69,9 +69,21 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | ---------------- | ----------------- | ---------- | ----------------------------------------------------------------------------------------------------------------- |
 | grammars         | SpeechGrammarList | null       | Grammars understood by the recognition [JSpeech Grammar Format](https://www.w3.org/TR/jsgf/)                      |
 | lang             | string            | 'en-US'    | Language understood by the recognition [BCP 47 language tag](https://tools.ietf.org/html/bcp47)                   |
-| continuous       | boolean           | false      | Whether continuous results are returned for each recognition, or only a single result                             |
+| continuous       | boolean           | false      | Whether continuous results are returned for each recognition, or only a single result (see [Continuous mode](#continuous-mode)) |
 | interimResults   | boolean           | false      | Whether interim results should be returned or not. Interim results are results that are not yet final             |
 | maxAlternatives  | number            | 1          | Maximum number of SpeechRecognitionAlternatives provided per result                                               |
+
+### Continuous mode
+
+Browsers (notably Chrome) automatically end a recognition session after a few seconds of silence, even when `continuous` is `true`. Vocal transparently restarts the underlying engine after such a silence-induced `end`, so recording keeps running until `stop()` or `abort()` is explicitly called. The intermediate `end` and `start` events triggered by the restart are not forwarded to user listeners — `isRecording` stays `true` across the restart, and the cycle is throttled to at most one restart per second to avoid `InvalidStateError`.
+
+The restart is disabled automatically when the recognition emits a fatal error (`not-allowed`, `service-not-allowed`, `audio-capture`).
+
+#### Aggregated result on stop
+
+To compensate for results being split across silent restart cycles, Vocal accumulates every final result (`isFinal: true`) received during a session. On explicit `stop()`, an extra `result` event is emitted just before `end`, carrying the joined transcripts as a single string. Interim results and `abort()` are excluded — `abort()` discards the buffer without emitting.
+
+The aggregated event is a synthetic `Event` shaped to match `SpeechRecognitionEvent` (`resultIndex` + `results[0][0].transcript`); it is not a real `SpeechRecognitionEvent` instance, so `event instanceof SpeechRecognitionEvent` returns `false`. Read the transcript through the second argument of the listener (`bestAlternative`).
 
 ## Events
 

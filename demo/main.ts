@@ -170,6 +170,10 @@ if (!isSupported) {
 
 $btnReinit.addEventListener('click', initVocal)
 
+;[$optLang, $optMaxAlt, $optContinuous, $optInterim].forEach((el) =>
+	el.addEventListener('change', initVocal)
+)
+
 $btnStart.addEventListener('click', async () => {
 	if (!vocal) return
 	try {
