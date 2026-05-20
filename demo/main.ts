@@ -1,4 +1,4 @@
-import { Vocal } from '../src/index'
+import { createVocal, isSupported as isVocalSupported, type VocalInstance } from '../src/index'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
@@ -23,8 +23,8 @@ const $btnClearLog = document.getElementById('btn-clear-log') as HTMLButtonEleme
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
-const isSupported = Vocal.isSupported
-let vocal: Vocal | null = null
+const isSupported = isVocalSupported()
+let vocal: VocalInstance | null = null
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -116,30 +116,29 @@ function initVocal() {
 	}
 
 	const options = buildOptions()
-	vocal = new Vocal(options)
+	vocal = createVocal(options)
 
-	vocal.addEventListener('result', (_, best, alts) => {
-		$transcript.textContent = best as string
-		setAlternatives(alts as string[])
-		log('result', best as string)
+	vocal.on('result', (_, best, alts) => {
+		$transcript.textContent = best
+		setAlternatives(alts)
+		log('result', best)
 		updateStatus()
 	})
 
-	vocal.addEventListener('error', (e) => {
-		const err = e as SpeechRecognitionErrorEvent
-		log('error', err.error ?? String(e))
+	vocal.on('error', (event) => {
+		log('error', event.error ?? String(event))
 		updateStatus()
 	})
 
-	vocal.addEventListener('start',       logEvent('start'))
-	vocal.addEventListener('end',         logEvent('end'))
-	vocal.addEventListener('nomatch',     logEvent('nomatch'))
-	vocal.addEventListener('audiostart',  logEvent('audiostart'))
-	vocal.addEventListener('audioend',    logEvent('audioend'))
-	vocal.addEventListener('soundstart',  logEvent('soundstart'))
-	vocal.addEventListener('soundend',    logEvent('soundend'))
-	vocal.addEventListener('speechstart', logEvent('speechstart'))
-	vocal.addEventListener('speechend',   logEvent('speechend'))
+	vocal.on('start',       logEvent('start'))
+	vocal.on('end',         logEvent('end'))
+	vocal.on('nomatch',     logEvent('nomatch'))
+	vocal.on('audiostart',  logEvent('audiostart'))
+	vocal.on('audioend',    logEvent('audioend'))
+	vocal.on('soundstart',  logEvent('soundstart'))
+	vocal.on('soundend',    logEvent('soundend'))
+	vocal.on('speechstart', logEvent('speechstart'))
+	vocal.on('speechend',   logEvent('speechend'))
 
 	log('init', JSON.stringify(options))
 	updateStatus()
