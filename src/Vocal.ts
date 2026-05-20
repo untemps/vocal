@@ -30,6 +30,9 @@ export type EventHandlerFor<T extends EventType> = T extends 'result'
 
 type EventHandler = (...args: unknown[]) => void
 
+const RESTART_THROTTLE_MS = 1000
+const FATAL_ERRORS: ReadonlySet<string> = new Set(['not-allowed', 'service-not-allowed', 'audio-capture'])
+
 class Vocal {
 	static defaultOptions: Required<VocalOptions> = {
 		grammars: null,
@@ -68,8 +71,47 @@ class Vocal {
 	private _instance: SpeechRecognition | null = null
 	private _listeners: Record<string, Array<{ callback: EventHandler; handler: EventHandler }>> = {}
 	private _isRecording: boolean = false
-	private _onEnd: () => void = () => {
+	private _explicitStop: boolean = false
+	private _lastStartedAt: number = 0
+	private _restartTimeoutId: ReturnType<typeof setTimeout> | null = null
+	private _isRestarting: boolean = false
+	private _finalTranscripts: string[] = []
+
+	private _onEnd = (event: Event): void => {
+		if (this._shouldAutoRestart()) {
+			// Chrome enforces a ~7s silence timeout even with continuous=true; restart transparently.
+			const delay = Math.max(0, RESTART_THROTTLE_MS - (Date.now() - this._lastStartedAt))
+			this._isRestarting = true
+			this._restartTimeoutId = setTimeout(() => this._restart(), delay)
+			event.stopImmediatePropagation()
+			return
+		}
 		this._isRecording = false
+	}
+
+	private _onStart = (event: Event): void => {
+		if (this._isRestarting) {
+			event.stopImmediatePropagation()
+			// Defer reset so user-side 'start' wrappers in the same tick still see the flag and swallow.
+			queueMicrotask(() => {
+				this._isRestarting = false
+			})
+		}
+	}
+
+	private _onError = (event: Event): void => {
+		if (FATAL_ERRORS.has((event as SpeechRecognitionErrorEvent).error)) {
+			this._explicitStop = true
+			this._clearRestartTimeout()
+			this._isRecording = false
+		}
+	}
+
+	private _onResult = (event: Event): void => {
+		const speechEvent = event as SpeechRecognitionEvent
+		const result = speechEvent.results?.[speechEvent.resultIndex]
+		if (!result?.isFinal) return
+		this._finalTranscripts.push(Vocal._pickBestAlternative(Array.from(result)).transcript)
 	}
 
 	constructor(options?: VocalOptions) {
@@ -95,7 +137,10 @@ class Vocal {
 			instance.grammars = grammars
 		}
 
-		this._instance.addEventListener('end', this._onEnd)
+		this._instance.addEventListener(Vocal.eventTypes.END, this._onEnd)
+		this._instance.addEventListener(Vocal.eventTypes.START, this._onStart)
+		this._instance.addEventListener(Vocal.eventTypes.ERROR, this._onError)
+		this._instance.addEventListener(Vocal.eventTypes.RESULT, this._onResult)
 	}
 
 	get isRecording(): boolean {
@@ -117,8 +162,11 @@ class Vocal {
 				if (!stream) {
 					throw new Error('Unable to retrieve the stream from media device')
 				}
+				this._explicitStop = false
+				this._finalTranscripts = []
 				this._instance.start()
 				this._isRecording = true
+				this._lastStartedAt = Date.now()
 			} catch (error) {
 				if (error instanceof Error && error.name === 'AbortError') return this
 				throw error
@@ -130,6 +178,9 @@ class Vocal {
 
 	stop(): this {
 		if (this._instance) {
+			this._explicitStop = true
+			this._clearRestartTimeout()
+			this._emitAggregatedResult()
 			this._instance.stop()
 			this._isRecording = false
 		}
@@ -139,8 +190,11 @@ class Vocal {
 
 	abort(): this {
 		if (this._instance) {
+			this._explicitStop = true
+			this._clearRestartTimeout()
 			this._instance.abort()
 			this._isRecording = false
+			this._finalTranscripts = []
 		}
 
 		return this
@@ -153,16 +207,20 @@ class Vocal {
 		}
 		if (this._instance) {
 			const handler: EventHandler = (event) => {
+				// Swallow intermediate end/start emitted by the silent auto-restart cycle.
+				if (
+					this._isRestarting &&
+					(eventType === Vocal.eventTypes.END || eventType === Vocal.eventTypes.START)
+				) {
+					return
+				}
 				const additionalArgs: unknown[] = []
 				if (eventType === Vocal.eventTypes.RESULT) {
 					const speechEvent = event as SpeechRecognitionEvent
 					if (speechEvent.results?.length > 0 && speechEvent.resultIndex < speechEvent.results.length) {
 						const alternatives = Array.from(speechEvent.results[speechEvent.resultIndex])
-						const bestAlternative = alternatives.reduce((a, b) =>
-							(b.confidence ?? 0) > (a.confidence ?? 0) ? b : a
-						)
 						additionalArgs.push(
-							bestAlternative.transcript,
+							Vocal._pickBestAlternative(alternatives).transcript,
 							alternatives.map((a) => a.transcript)
 						)
 					}
@@ -221,10 +279,56 @@ class Vocal {
 		this.stop()
 
 		Object.keys(this._listeners).forEach((key) => this.removeEventListener(key as EventType))
-		this._instance?.removeEventListener('end', this._onEnd)
+		this._instance?.removeEventListener(Vocal.eventTypes.END, this._onEnd)
+		this._instance?.removeEventListener(Vocal.eventTypes.START, this._onStart)
+		this._instance?.removeEventListener(Vocal.eventTypes.ERROR, this._onError)
+		this._instance?.removeEventListener(Vocal.eventTypes.RESULT, this._onResult)
 		this._instance = null
 
 		return this
+	}
+
+	private _restart = (): void => {
+		this._restartTimeoutId = null
+		try {
+			this._instance!.start()
+			this._lastStartedAt = Date.now()
+		} catch {
+			this._isRestarting = false
+			this._isRecording = false
+		}
+	}
+
+	private _emitAggregatedResult(): void {
+		const transcripts = this._finalTranscripts
+		this._finalTranscripts = []
+		if (transcripts.length === 0) return
+
+		const aggregated = transcripts.join(' ').trim()
+		const result = Object.assign([{ transcript: aggregated, confidence: 1 }], { isFinal: true })
+		const event = Object.assign(new Event(Vocal.eventTypes.RESULT), {
+			resultIndex: 0,
+			results: [result],
+		})
+
+		// Snapshot listeners to stay safe if a handler removes itself during dispatch.
+		;[...(this._listeners[Vocal.eventTypes.RESULT] ?? [])].forEach(({ handler }) => handler(event))
+	}
+
+	private static _pickBestAlternative<T extends { confidence?: number }>(alternatives: T[]): T {
+		return alternatives.reduce((a, b) => ((b.confidence ?? 0) > (a.confidence ?? 0) ? b : a))
+	}
+
+	private _shouldAutoRestart(): boolean {
+		return !!this._instance && !this._explicitStop && this._instance.continuous
+	}
+
+	private _clearRestartTimeout(): void {
+		if (this._restartTimeoutId !== null) {
+			clearTimeout(this._restartTimeoutId)
+			this._restartTimeoutId = null
+		}
+		this._isRestarting = false
 	}
 
 	private _includesEventType(eventType: string): boolean {
