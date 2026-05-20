@@ -266,15 +266,6 @@ class Vocal {
 		return this
 	}
 
-	once<T extends EventType>(eventType: T, callback: EventHandlerFor<T>): this
-	once(eventType: string, callback: EventHandler): this {
-		const wrapper: EventHandler = (...args) => {
-			;(callback as EventHandler).call(this, ...args)
-			this.removeEventListener(eventType as EventType, wrapper as EventHandlerFor<EventType>)
-		}
-		return this.addEventListener(eventType as EventType, wrapper as EventHandlerFor<EventType>)
-	}
-
 	cleanup(): this {
 		this.stop()
 
