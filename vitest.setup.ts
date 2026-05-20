@@ -29,7 +29,7 @@ interface MockSpeechRecognitionInstance {
 	start: Mock
 	stop: Mock
 	abort: Mock
-	say: Mock<[sentence: string, alternatives?: SayAlternative[]], void>
+	say: Mock<[sentence: string, alternatives?: SayAlternative[], options?: { isFinal?: boolean }], void>
 }
 
 declare global {
@@ -100,16 +100,24 @@ global.SpeechRecognition = vi.fn(function () {
 		abort: vi.fn(function () {
 			dispatch('end', new Event('end'))
 		}),
-		say: vi.fn(function (sentence: string, alternatives?: (string | { transcript: string; confidence: number })[]) {
+		say: vi.fn(function (
+			sentence: string,
+			alternatives?: (string | { transcript: string; confidence: number })[],
+			options?: { isFinal?: boolean }
+		) {
 			dispatch('speechstart')
 
 			const alts = alternatives ?? [sentence]
+			const result = Object.assign(
+				alts.map((t) => (typeof t === 'string' ? { transcript: t, confidence: 0 } : t)),
+				{ isFinal: options?.isFinal ?? true }
+			)
 			const resultEvent = new Event('result') as Event & {
 				resultIndex: number
-				results: { transcript: string; confidence: number }[][]
+				results: (typeof result)[]
 			}
 			resultEvent.resultIndex = 0
-			resultEvent.results = [alts.map((t) => (typeof t === 'string' ? { transcript: t, confidence: 0 } : t))]
+			resultEvent.results = [result]
 			if (sentence) {
 				dispatch('result', resultEvent)
 			} else {

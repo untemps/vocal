@@ -74,6 +74,7 @@ class Vocal {
 	private _lastStartedAt: number = 0
 	private _restartTimeoutId: ReturnType<typeof setTimeout> | null = null
 	private _isRestarting: boolean = false
+	private _finalTranscripts: string[] = []
 
 	private _onEnd = (event: Event): void => {
 		if (this._shouldAutoRestart()) {
@@ -108,6 +109,15 @@ class Vocal {
 		}
 	}
 
+	private _onResult = (event: Event): void => {
+		const speechEvent = event as SpeechRecognitionEvent
+		const result = speechEvent.results?.[speechEvent.resultIndex]
+		if (!result?.isFinal) return
+		const alternatives = Array.from(result)
+		const best = alternatives.reduce((a, b) => ((b.confidence ?? 0) > (a.confidence ?? 0) ? b : a))
+		this._finalTranscripts.push(best.transcript)
+	}
+
 	constructor(options?: VocalOptions) {
 		const SpeechRecognition = Vocal._resolveSpeechRecognition()
 		if (!SpeechRecognition) {
@@ -134,6 +144,7 @@ class Vocal {
 		this._instance.addEventListener('end', this._onEnd)
 		this._instance.addEventListener('start', this._onStart)
 		this._instance.addEventListener('error', this._onError)
+		this._instance.addEventListener('result', this._onResult)
 	}
 
 	get isRecording(): boolean {
@@ -156,6 +167,7 @@ class Vocal {
 					throw new Error('Unable to retrieve the stream from media device')
 				}
 				this._explicitStop = false
+				this._finalTranscripts = []
 				this._instance.start()
 				this._isRecording = true
 				this._lastStartedAt = Date.now()
@@ -172,6 +184,7 @@ class Vocal {
 		if (this._instance) {
 			this._explicitStop = true
 			this._clearRestartTimeout()
+			this._emitAggregatedResult()
 			this._instance.stop()
 			this._isRecording = false
 		}
@@ -185,6 +198,7 @@ class Vocal {
 			this._clearRestartTimeout()
 			this._instance.abort()
 			this._isRecording = false
+			this._finalTranscripts = []
 		}
 
 		return this
@@ -275,6 +289,7 @@ class Vocal {
 		this._instance?.removeEventListener('end', this._onEnd)
 		this._instance?.removeEventListener('start', this._onStart)
 		this._instance?.removeEventListener('error', this._onError)
+		this._instance?.removeEventListener('result', this._onResult)
 		this._instance = null
 
 		return this
@@ -289,6 +304,24 @@ class Vocal {
 			this._isRestarting = false
 			this._isRecording = false
 		}
+	}
+
+	private _emitAggregatedResult(): void {
+		const transcripts = this._finalTranscripts
+		this._finalTranscripts = []
+		if (transcripts.length === 0) return
+
+		const aggregated = transcripts.join(' ').trim()
+		const result = Object.assign([{ transcript: aggregated, confidence: 1 }], {
+			isFinal: true,
+			length: 1,
+		})
+		const event = Object.assign(new Event(Vocal.eventTypes.RESULT), {
+			resultIndex: 0,
+			results: [result],
+		})
+
+		this._listeners[Vocal.eventTypes.RESULT]?.forEach(({ handler }) => handler(event))
 	}
 
 	private _shouldAutoRestart(): boolean {
