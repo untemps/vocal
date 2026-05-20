@@ -1,4 +1,4 @@
-import Vocal from '../Vocal'
+import { createVocal, isSupported, eventTypes, type VocalInstance } from '../Vocal'
 import * as userPermissionsUtils from '@untemps/user-permissions-utils'
 
 type MockFn = {
@@ -9,7 +9,9 @@ type MockFn = {
 type SayAlternative = string | { transcript: string; confidence: number }
 
 interface MockInstance {
-	say: ((sentence: string, alternatives?: SayAlternative[]) => void) & { mock: { calls: unknown[][] } }
+	say: ((sentence: string, alternatives?: SayAlternative[], options?: { isFinal?: boolean }) => void) & {
+		mock: { calls: unknown[][] }
+	}
 	addEventListener: MockFn
 	removeEventListener: MockFn
 	start: MockFn
@@ -18,28 +20,33 @@ interface MockInstance {
 	[key: string]: unknown
 }
 
-const mockInstance = (wrapper: Vocal) => (wrapper as unknown as { _instance: MockInstance })._instance
+const lastInstance = (): MockInstance => {
+	const sr = SpeechRecognition as unknown as { mock: { results: Array<{ value: MockInstance }> } }
+	return sr.mock.results[sr.mock.results.length - 1].value
+}
+
+const setup = (options?: Parameters<typeof createVocal>[0]): { vocal: VocalInstance; instance: MockInstance } => {
+	const vocal = createVocal(options)
+	return { vocal, instance: lastInstance() }
+}
+
 const mockStream = 'stream' as unknown as MediaStream
 const mockNull = null as unknown as MediaStream
 
 describe('Vocal', () => {
 	describe('isSupported', () => {
 		it('returns true when SpeechRecognition, permissions and mediaDevices are all supported', () => {
-			expect(Vocal.isSupported).toBe(true)
+			expect(isSupported()).toBe(true)
 		})
 
 		it('returns false when navigator.permissions is not supported', () => {
 			vi.spyOn(userPermissionsUtils, 'isNavigatorPermissionsSupported').mockReturnValueOnce(false)
-			expect(Vocal.isSupported).toBe(false)
+			expect(isSupported()).toBe(false)
 		})
 
 		it('returns false when navigator.mediaDevices is not supported', () => {
 			vi.spyOn(userPermissionsUtils, 'isNavigatorMediaDevicesSupported').mockReturnValueOnce(false)
-			expect(Vocal.isSupported).toBe(false)
-		})
-
-		it('throws when setting isSupported directly', () => {
-			expect(() => (Vocal.isSupported = false)).toThrow()
+			expect(isSupported()).toBe(false)
 		})
 
 		describe('when SpeechRecognition is unavailable', () => {
@@ -53,7 +60,7 @@ describe('Vocal', () => {
 			})
 
 			it('returns false', () => {
-				expect(Vocal.isSupported).toBe(false)
+				expect(isSupported()).toBe(false)
 			})
 		})
 
@@ -68,36 +75,36 @@ describe('Vocal', () => {
 			})
 
 			it('returns false without throwing', () => {
-				expect(() => Vocal.isSupported).not.toThrow()
-				expect(Vocal.isSupported).toBe(false)
+				expect(() => isSupported()).not.toThrow()
+				expect(isSupported()).toBe(false)
 			})
 		})
 	})
 
-	describe('constructor', () => {
+	describe('createVocal', () => {
 		it('applies default options', () => {
-			const wrapper = new Vocal()
-			expect(mockInstance(wrapper).lang).toBe('en-US')
-			expect(mockInstance(wrapper).continuous).toBe(false)
-			expect(mockInstance(wrapper).interimResults).toBe(false)
-			expect(mockInstance(wrapper).maxAlternatives).toBe(1)
+			const { instance } = setup()
+			expect(instance.lang).toBe('en-US')
+			expect(instance.continuous).toBe(false)
+			expect(instance.interimResults).toBe(false)
+			expect(instance.maxAlternatives).toBe(1)
 		})
 
 		it('applies custom options', () => {
-			const wrapper = new Vocal({ lang: 'fr-FR', continuous: true })
-			expect(mockInstance(wrapper).lang).toBe('fr-FR')
-			expect(mockInstance(wrapper).continuous).toBe(true)
+			const { instance } = setup({ lang: 'fr-FR', continuous: true })
+			expect(instance.lang).toBe('fr-FR')
+			expect(instance.continuous).toBe(true)
 		})
 
 		it('assigns SpeechGrammarList instance when grammars is null and SpeechGrammarList is available', () => {
-			const wrapper = new Vocal()
-			expect(mockInstance(wrapper).grammars).not.toBeNull()
+			const { instance } = setup()
+			expect(instance.grammars).not.toBeNull()
 		})
 
 		it('uses provided grammars value when non-null', () => {
 			const grammars = { items: [] } as unknown as SpeechGrammarList
-			const wrapper = new Vocal({ grammars })
-			expect(mockInstance(wrapper).grammars).toBe(grammars)
+			const { instance } = setup({ grammars })
+			expect(instance.grammars).toBe(grammars)
 		})
 
 		describe('when SpeechRecognition is unavailable', () => {
@@ -111,7 +118,7 @@ describe('Vocal', () => {
 			})
 
 			it('throws DOMException', () => {
-				expect(() => new Vocal()).toThrow(DOMException)
+				expect(() => createVocal()).toThrow(DOMException)
 			})
 		})
 
@@ -126,65 +133,60 @@ describe('Vocal', () => {
 			})
 
 			it('leaves grammars null', () => {
-				const wrapper = new Vocal()
-				expect(mockInstance(wrapper).grammars).toBeNull()
+				const { instance } = setup()
+				expect(instance.grammars).toBeNull()
 			})
 		})
 	})
 
 	describe('isRecording', () => {
 		it('returns false by default', () => {
-			const wrapper = new Vocal()
-			expect(wrapper.isRecording).toBe(false)
+			const { vocal } = setup()
+			expect(vocal.isRecording).toBe(false)
 		})
 
 		it('returns true after a successful start', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal()
-			await wrapper.start()
-			expect(wrapper.isRecording).toBe(true)
+			const { vocal } = setup()
+			await vocal.start()
+			expect(vocal.isRecording).toBe(true)
 		})
 
 		it.each([
-			['stop', (w: Vocal) => w.stop()],
-			['abort', (w: Vocal) => w.abort()],
+			['stop', (v: VocalInstance) => v.stop()],
+			['abort', (v: VocalInstance) => v.abort()],
 		] as const)('returns false after %s', async (_, action) => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal()
-			await wrapper.start()
-			action(wrapper)
-			expect(wrapper.isRecording).toBe(false)
+			const { vocal } = setup()
+			await vocal.start()
+			action(vocal)
+			expect(vocal.isRecording).toBe(false)
 		})
 
 		it('returns false when end event fires', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal()
-			await wrapper.start()
-			mockInstance(wrapper)
-				.addEventListener.mock.calls.filter(([type]: string[]) => type === 'end')
+			const { vocal, instance } = setup()
+			await vocal.start()
+			instance.addEventListener.mock.calls
+				.filter(([type]: string[]) => type === 'end')
 				.forEach(([, handler]: [string, EventListener]) => handler(new Event('end')))
-			expect(wrapper.isRecording).toBe(false)
-		})
-
-		it('throws when setting isRecording directly', () => {
-			const wrapper = new Vocal()
-			expect(() => (wrapper.isRecording = true)).toThrow()
+			expect(vocal.isRecording).toBe(false)
 		})
 	})
 
 	describe('start', () => {
 		it('calls instance.start when getUserMediaStream returns a stream', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal()
-			await wrapper.start()
-			expect(mockInstance(wrapper).start).toHaveBeenCalled()
+			const { vocal, instance } = setup()
+			await vocal.start()
+			expect(instance.start).toHaveBeenCalled()
 		})
 
 		it('rejects when getUserMediaStream returns null', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockNull)
-			const wrapper = new Vocal()
-			await expect(wrapper.start()).rejects.toThrow('Unable to retrieve the stream from media device')
-			expect(wrapper.isRecording).toBe(false)
+			const { vocal } = setup()
+			await expect(vocal.start()).rejects.toThrow('Unable to retrieve the stream from media device')
+			expect(vocal.isRecording).toBe(false)
 		})
 
 		it('rejects when getUserMediaStream throws', async () => {
@@ -192,119 +194,103 @@ describe('Vocal', () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockImplementationOnce(() => {
 				throw error
 			})
-			const wrapper = new Vocal()
-			await expect(wrapper.start()).rejects.toThrow(error)
-			expect(wrapper.isRecording).toBe(false)
+			const { vocal } = setup()
+			await expect(vocal.start()).rejects.toThrow(error)
+			expect(vocal.isRecording).toBe(false)
 		})
 
-		it('does nothing when instance is null', async () => {
-			const wrapper = new Vocal()
-			const instance = mockInstance(wrapper)
-			wrapper.cleanup()
-			await wrapper.start()
-			expect(instance.start).not.toHaveBeenCalled()
-		})
-
-		it('returns this for chaining', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal()
-			expect(await wrapper.start()).toBe(wrapper)
+		it('does nothing once cleaned up', async () => {
+			const { vocal, instance } = setup()
+			vocal.cleanup()
+			const startCallsBefore = (instance.start as MockFn).mock.calls.length
+			await vocal.start()
+			expect((instance.start as MockFn).mock.calls.length).toBe(startCallsBefore)
 		})
 
 		it('resolves when getUserMediaStream is aborted', async () => {
 			const abortError = Object.assign(new Error('Aborted'), { name: 'AbortError' })
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockRejectedValueOnce(abortError)
-			const wrapper = new Vocal()
-			await expect(wrapper.start()).resolves.toBe(wrapper)
+			const { vocal } = setup()
+			await expect(vocal.start()).resolves.toBeUndefined()
 		})
 
 		it('forwards signal to getUserMediaStream when provided', async () => {
 			const spy = vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const signal = new AbortController().signal
-			const wrapper = new Vocal()
-			await wrapper.start({ signal })
+			const { vocal } = setup()
+			await vocal.start({ signal })
 			expect(spy).toHaveBeenCalledWith('microphone', { audio: true }, { signal })
 		})
 
 		it('calls getUserMediaStream without signal when not provided', async () => {
 			const spy = vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal()
-			await wrapper.start()
+			const { vocal } = setup()
+			await vocal.start()
 			expect(spy).toHaveBeenCalledWith('microphone', { audio: true }, { signal: undefined })
 		})
 	})
 
 	describe('stop', () => {
 		it('calls instance.stop', () => {
-			const wrapper = new Vocal()
-			wrapper.stop()
-			expect(mockInstance(wrapper).stop).toHaveBeenCalled()
+			const { vocal, instance } = setup()
+			vocal.stop()
+			expect(instance.stop).toHaveBeenCalled()
 		})
 
-		it('returns this for chaining', () => {
-			const wrapper = new Vocal()
-			expect(wrapper.stop()).toBe(wrapper)
-		})
-
-		it('does nothing when instance is null', () => {
-			const wrapper = new Vocal()
-			wrapper.cleanup()
-			expect(() => wrapper.stop()).not.toThrow()
+		it('does nothing once cleaned up', () => {
+			const { vocal } = setup()
+			vocal.cleanup()
+			expect(() => vocal.stop()).not.toThrow()
 		})
 	})
 
 	describe('abort', () => {
 		it('calls instance.abort', () => {
-			const wrapper = new Vocal()
-			wrapper.abort()
-			expect(mockInstance(wrapper).abort).toHaveBeenCalled()
+			const { vocal, instance } = setup()
+			vocal.abort()
+			expect(instance.abort).toHaveBeenCalled()
 		})
 
-		it('returns this for chaining', () => {
-			const wrapper = new Vocal()
-			expect(wrapper.abort()).toBe(wrapper)
-		})
-
-		it('does nothing when instance is null', () => {
-			const wrapper = new Vocal()
-			wrapper.cleanup()
-			expect(() => wrapper.abort()).not.toThrow()
+		it('does nothing once cleaned up', () => {
+			const { vocal } = setup()
+			vocal.cleanup()
+			expect(() => vocal.abort()).not.toThrow()
 		})
 	})
 
-	describe('addEventListener', () => {
+	describe('on', () => {
 		it('registers and calls callback for non-RESULT events', () => {
 			const onStart = vi.fn()
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.START, onStart)
-			mockInstance(wrapper).start()
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.START, onStart)
+			instance.start()
 			expect(onStart).toHaveBeenCalled()
 		})
 
 		it('passes best transcript and alternatives array for RESULT events', () => {
 			const onResult = vi.fn()
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-			mockInstance(wrapper).say('hello world')
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.RESULT, onResult)
+			instance.say('hello world')
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello world', ['hello world'])
 		})
 
 		it('passes all alternatives when multiple are available', () => {
 			const onResult = vi.fn()
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-			mockInstance(wrapper).say('hello', ['hello', 'helo', 'hell'])
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.RESULT, onResult)
+			instance.say('hello', ['hello', 'helo', 'hell'])
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello', ['hello', 'helo', 'hell'])
 		})
 
 		it('falls back to first alternative when confidence is unavailable', () => {
 			const onResult = vi.fn()
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-			const [, handler] = (mockInstance(wrapper).addEventListener.mock.calls as string[][]).findLast(
-				([type]) => type === Vocal.eventTypes.RESULT
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.RESULT, onResult)
+			const [, handler] = (instance.addEventListener.mock.calls as string[][]).findLast(
+				([type]) => type === eventTypes.RESULT
 			)!
-			const event = Object.assign(new Event(Vocal.eventTypes.RESULT), {
+			const event = Object.assign(new Event(eventTypes.RESULT), {
 				resultIndex: 0,
 				results: [[{ transcript: 'hello' }, { transcript: 'helo' }, { transcript: 'hell' }]],
 			})
@@ -314,9 +300,9 @@ describe('Vocal', () => {
 
 		it('selects the alternative with highest confidence as best transcript', () => {
 			const onResult = vi.fn()
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-			mockInstance(wrapper).say('helo', [
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.RESULT, onResult)
+			instance.say('helo', [
 				{ transcript: 'hello', confidence: 0.7 },
 				{ transcript: 'helo', confidence: 0.9 },
 				{ transcript: 'hell', confidence: 0.5 },
@@ -326,12 +312,12 @@ describe('Vocal', () => {
 
 		it('uses resultIndex to select the current result in continuous mode', () => {
 			const onResult = vi.fn()
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-			const [, handler] = (mockInstance(wrapper).addEventListener.mock.calls as string[][]).findLast(
-				([type]) => type === Vocal.eventTypes.RESULT
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.RESULT, onResult)
+			const [, handler] = (instance.addEventListener.mock.calls as string[][]).findLast(
+				([type]) => type === eventTypes.RESULT
 			)!
-			const event = Object.assign(new Event(Vocal.eventTypes.RESULT), {
+			const event = Object.assign(new Event(eventTypes.RESULT), {
 				resultIndex: 1,
 				results: [
 					[{ transcript: 'first utterance', confidence: 0.9 }],
@@ -344,12 +330,12 @@ describe('Vocal', () => {
 
 		it('does not pass transcript when resultIndex is out of bounds', () => {
 			const onResult = vi.fn()
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-			const [, handler] = (mockInstance(wrapper).addEventListener.mock.calls as string[][]).findLast(
-				([type]) => type === Vocal.eventTypes.RESULT
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.RESULT, onResult)
+			const [, handler] = (instance.addEventListener.mock.calls as string[][]).findLast(
+				([type]) => type === eventTypes.RESULT
 			)!
-			const event = Object.assign(new Event(Vocal.eventTypes.RESULT), {
+			const event = Object.assign(new Event(eventTypes.RESULT), {
 				resultIndex: 5,
 				results: [[{ transcript: 'hello', confidence: 0.9 }]],
 			})
@@ -360,12 +346,12 @@ describe('Vocal', () => {
 
 		it('does not pass transcript for RESULT events with empty results', () => {
 			const onResult = vi.fn()
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-			const [, handler] = (mockInstance(wrapper).addEventListener.mock.calls as string[][]).findLast(
-				([type]) => type === Vocal.eventTypes.RESULT
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.RESULT, onResult)
+			const [, handler] = (instance.addEventListener.mock.calls as string[][]).findLast(
+				([type]) => type === eventTypes.RESULT
 			)!
-			const event = Object.assign(new Event(Vocal.eventTypes.RESULT), { results: [] })
+			const event = Object.assign(new Event(eventTypes.RESULT), { results: [] })
 			;(handler as unknown as (e: Event) => void)(event)
 			expect(onResult).toHaveBeenCalledTimes(1)
 			expect(onResult.mock.calls[0]).toHaveLength(1)
@@ -374,10 +360,10 @@ describe('Vocal', () => {
 		it('stacks multiple listeners for the same event type', () => {
 			const onStart1 = vi.fn()
 			const onStart2 = vi.fn()
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.START, onStart1)
-			wrapper.addEventListener(Vocal.eventTypes.START, onStart2)
-			mockInstance(wrapper).start()
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.START, onStart1)
+			vocal.on(eventTypes.START, onStart2)
+			instance.start()
 			expect(onStart1).toHaveBeenCalled()
 			expect(onStart2).toHaveBeenCalled()
 		})
@@ -385,69 +371,58 @@ describe('Vocal', () => {
 		it('removes a specific listener by callback reference', () => {
 			const onStart1 = vi.fn()
 			const onStart2 = vi.fn()
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.START, onStart1)
-			wrapper.addEventListener(Vocal.eventTypes.START, onStart2)
-			wrapper.removeEventListener(Vocal.eventTypes.START, onStart1)
-			mockInstance(wrapper).start()
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.START, onStart1)
+			vocal.on(eventTypes.START, onStart2)
+			vocal.off(eventTypes.START, onStart1)
+			instance.start()
 			expect(onStart1).not.toHaveBeenCalled()
 			expect(onStart2).toHaveBeenCalled()
 		})
 
 		it('throws on invalid event types', () => {
-			const wrapper = new Vocal()
-			expect(() => wrapper.addEventListener('invalid-type', vi.fn())).toThrow('Unknown event type "invalid-type"')
+			const { vocal } = setup()
+			expect(() => vocal.on('invalid-type', vi.fn())).toThrow('Unknown event type "invalid-type"')
 		})
 
-		it('returns this for chaining', () => {
-			const wrapper = new Vocal()
-			expect(wrapper.addEventListener(Vocal.eventTypes.START, vi.fn())).toBe(wrapper)
-		})
-
-		it('does nothing when instance is null', () => {
-			const wrapper = new Vocal()
-			wrapper.cleanup()
-			expect(() => wrapper.addEventListener(Vocal.eventTypes.START, vi.fn())).not.toThrow()
+		it('does nothing once cleaned up', () => {
+			const { vocal } = setup()
+			vocal.cleanup()
+			expect(() => vocal.on(eventTypes.START, vi.fn())).not.toThrow()
 		})
 	})
 
-	describe('removeEventListener', () => {
+	describe('off', () => {
 		it('calls removeEventListener on the underlying instance', () => {
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.START, vi.fn())
-			wrapper.removeEventListener(Vocal.eventTypes.START)
-			expect(mockInstance(wrapper).removeEventListener).toHaveBeenCalled()
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.START, vi.fn())
+			vocal.off(eventTypes.START)
+			expect(instance.removeEventListener).toHaveBeenCalled()
 		})
 
-		it('returns this for chaining', () => {
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.START, vi.fn())
-			expect(wrapper.removeEventListener(Vocal.eventTypes.START)).toBe(wrapper)
-		})
-
-		it('does nothing when instance is null', () => {
-			const wrapper = new Vocal()
-			wrapper.cleanup()
-			expect(() => wrapper.removeEventListener(Vocal.eventTypes.START)).not.toThrow()
+		it('does nothing once cleaned up', () => {
+			const { vocal } = setup()
+			vocal.cleanup()
+			expect(() => vocal.off(eventTypes.START)).not.toThrow()
 		})
 
 		it('throws on invalid event types', () => {
-			const wrapper = new Vocal()
-			expect(() => wrapper.removeEventListener('invalid-type')).toThrow('Unknown event type "invalid-type"')
+			const { vocal } = setup()
+			expect(() => vocal.off('invalid-type')).toThrow('Unknown event type "invalid-type"')
 		})
 
 		it('does nothing when callback was never registered', () => {
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.START, vi.fn())
-			expect(() => wrapper.removeEventListener(Vocal.eventTypes.START, vi.fn())).not.toThrow()
+			const { vocal } = setup()
+			vocal.on(eventTypes.START, vi.fn())
+			expect(() => vocal.off(eventTypes.START, vi.fn())).not.toThrow()
 		})
 
 		it('cleans up the listener entry when last callback is removed by reference', () => {
 			const onStart = vi.fn()
-			const wrapper = new Vocal()
-			wrapper.addEventListener(Vocal.eventTypes.START, onStart)
-			wrapper.removeEventListener(Vocal.eventTypes.START, onStart)
-			mockInstance(wrapper).start()
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.START, onStart)
+			vocal.off(eventTypes.START, onStart)
+			instance.start()
 			expect(onStart).not.toHaveBeenCalled()
 		})
 	})
@@ -475,9 +450,8 @@ describe('Vocal', () => {
 
 		it('restarts the engine after silence end when continuous is true', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 			const initialStartCalls = (instance.start as MockFn).mock.calls.length
 
 			fireEnd(instance)
@@ -488,9 +462,8 @@ describe('Vocal', () => {
 
 		it('does not restart when continuous is false', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: false })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: false })
+			await vocal.start()
 			const initialStartCalls = (instance.start as MockFn).mock.calls.length
 
 			fireEnd(instance)
@@ -501,10 +474,9 @@ describe('Vocal', () => {
 
 		it('does not restart after explicit stop()', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
-			wrapper.stop()
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+			vocal.stop()
 			const startCallsAfterStop = (instance.start as MockFn).mock.calls.length
 
 			await vi.advanceTimersByTimeAsync(1000)
@@ -514,10 +486,9 @@ describe('Vocal', () => {
 
 		it('does not restart after explicit abort()', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
-			wrapper.abort()
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+			vocal.abort()
 			const startCallsAfterAbort = (instance.start as MockFn).mock.calls.length
 
 			await vi.advanceTimersByTimeAsync(1000)
@@ -527,9 +498,8 @@ describe('Vocal', () => {
 
 		it('throttles restart to at least 1000ms after last start', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 			const initialStartCalls = (instance.start as MockFn).mock.calls.length
 
 			fireEnd(instance)
@@ -542,9 +512,8 @@ describe('Vocal', () => {
 
 		it('restarts immediately when more than 1000ms have elapsed since last start', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 			const initialStartCalls = (instance.start as MockFn).mock.calls.length
 
 			await vi.advanceTimersByTimeAsync(1000 + 500)
@@ -556,13 +525,12 @@ describe('Vocal', () => {
 
 		it('cancels the scheduled restart when stop() is called during the throttle window', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 			const initialStartCalls = (instance.start as MockFn).mock.calls.length
 
 			fireEnd(instance)
-			wrapper.stop()
+			vocal.stop()
 			await vi.advanceTimersByTimeAsync(1000)
 
 			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
@@ -570,13 +538,12 @@ describe('Vocal', () => {
 
 		it('cancels the scheduled restart when abort() is called during the throttle window', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 			const initialStartCalls = (instance.start as MockFn).mock.calls.length
 
 			fireEnd(instance)
-			wrapper.abort()
+			vocal.abort()
 			await vi.advanceTimersByTimeAsync(1000)
 
 			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
@@ -584,9 +551,8 @@ describe('Vocal', () => {
 
 		it('disables auto-restart on not-allowed error', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 			const initialStartCalls = (instance.start as MockFn).mock.calls.length
 
 			fireError(instance, 'not-allowed')
@@ -594,14 +560,13 @@ describe('Vocal', () => {
 			await vi.advanceTimersByTimeAsync(1000)
 
 			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
-			expect(wrapper.isRecording).toBe(false)
+			expect(vocal.isRecording).toBe(false)
 		})
 
 		it.each(['service-not-allowed', 'audio-capture'])('disables auto-restart on %s error', async (errorType) => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 			const initialStartCalls = (instance.start as MockFn).mock.calls.length
 
 			fireError(instance, errorType)
@@ -613,9 +578,8 @@ describe('Vocal', () => {
 
 		it.each(['no-speech', 'network'])('keeps auto-restart active on transient %s error', async (errorType) => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 			const initialStartCalls = (instance.start as MockFn).mock.calls.length
 
 			fireError(instance, errorType)
@@ -627,12 +591,12 @@ describe('Vocal', () => {
 
 		it('does not propagate intermediate end events to user listeners', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 			const onEnd = vi.fn()
-			wrapper.addEventListener(Vocal.eventTypes.END, onEnd)
+			vocal.on(eventTypes.END, onEnd)
 
-			fireEnd(mockInstance(wrapper))
+			fireEnd(instance)
 			await vi.advanceTimersByTimeAsync(1000)
 
 			expect(onEnd).not.toHaveBeenCalled()
@@ -640,12 +604,12 @@ describe('Vocal', () => {
 
 		it('does not propagate the restart start event to user listeners', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 			const onStart = vi.fn()
-			wrapper.addEventListener(Vocal.eventTypes.START, onStart)
+			vocal.on(eventTypes.START, onStart)
 
-			fireEnd(mockInstance(wrapper))
+			fireEnd(instance)
 			await vi.advanceTimersByTimeAsync(1000)
 
 			expect(onStart).not.toHaveBeenCalled()
@@ -653,37 +617,36 @@ describe('Vocal', () => {
 
 		it('still propagates end on explicit stop in continuous mode', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
+			const { vocal } = setup({ continuous: true })
+			await vocal.start()
 			const onEnd = vi.fn()
-			wrapper.addEventListener(Vocal.eventTypes.END, onEnd)
+			vocal.on(eventTypes.END, onEnd)
 
-			wrapper.stop()
+			vocal.stop()
 
 			expect(onEnd).toHaveBeenCalledTimes(1)
 		})
 
 		it('keeps isRecording true during the restart window', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 
-			fireEnd(mockInstance(wrapper))
-			expect(wrapper.isRecording).toBe(true)
+			fireEnd(instance)
+			expect(vocal.isRecording).toBe(true)
 
 			await vi.advanceTimersByTimeAsync(1000)
-			expect(wrapper.isRecording).toBe(true)
+			expect(vocal.isRecording).toBe(true)
 		})
 
 		it('cancels the scheduled restart on cleanup()', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 			const initialStartCalls = (instance.start as MockFn).mock.calls.length
 
 			fireEnd(instance)
-			wrapper.cleanup()
+			vocal.cleanup()
 			await vi.advanceTimersByTimeAsync(1000)
 
 			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
@@ -691,9 +654,8 @@ describe('Vocal', () => {
 
 		it('resets isRecording when the engine throws on restart', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 
 			fireEnd(instance)
 			;(instance.start as unknown as { mockImplementationOnce: (fn: () => void) => void }).mockImplementationOnce(
@@ -704,25 +666,24 @@ describe('Vocal', () => {
 
 			await vi.advanceTimersByTimeAsync(1000)
 
-			expect(wrapper.isRecording).toBe(false)
+			expect(vocal.isRecording).toBe(false)
 		})
 	})
 
 	describe('aggregated result on stop()', () => {
 		it('emits a synthetic result event with the joined final transcripts', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 
 			const onResult = vi.fn()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
+			vocal.on(eventTypes.RESULT, onResult)
 
 			instance.say('hello')
 			instance.say('world')
 			onResult.mockClear()
 
-			wrapper.stop()
+			vocal.stop()
 
 			expect(onResult).toHaveBeenCalledTimes(1)
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello world', ['hello world'])
@@ -730,31 +691,30 @@ describe('Vocal', () => {
 
 		it('does not emit when no final result was received', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal()
-			await wrapper.start()
+			const { vocal } = setup()
+			await vocal.start()
 
 			const onResult = vi.fn()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
+			vocal.on(eventTypes.RESULT, onResult)
 
-			wrapper.stop()
+			vocal.stop()
 
 			expect(onResult).not.toHaveBeenCalled()
 		})
 
 		it('ignores non-final (interim) results', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 
 			const onResult = vi.fn()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
+			vocal.on(eventTypes.RESULT, onResult)
 
 			instance.say('partial', undefined, { isFinal: false })
 			instance.say('final', undefined, { isFinal: true })
 			onResult.mockClear()
 
-			wrapper.stop()
+			vocal.stop()
 
 			expect(onResult).toHaveBeenCalledTimes(1)
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'final', ['final'])
@@ -762,35 +722,33 @@ describe('Vocal', () => {
 
 		it('does not emit on abort() and clears the buffer', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 
 			instance.say('hello')
 
 			const onResult = vi.fn()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
+			vocal.on(eventTypes.RESULT, onResult)
 
-			wrapper.abort()
+			vocal.abort()
 
 			expect(onResult).not.toHaveBeenCalled()
 		})
 
 		it('resets the buffer on subsequent start() so each session aggregates independently', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValue(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 
 			instance.say('first')
-			wrapper.stop()
+			vocal.stop()
 
 			const onResult = vi.fn()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-			await wrapper.start()
+			vocal.on(eventTypes.RESULT, onResult)
+			await vocal.start()
 
 			instance.say('second')
-			wrapper.stop()
+			vocal.stop()
 
 			expect(onResult).toHaveBeenLastCalledWith(expect.any(Event), 'second', ['second'])
 		})
@@ -799,9 +757,8 @@ describe('Vocal', () => {
 			vi.useFakeTimers()
 			try {
 				vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-				const wrapper = new Vocal({ continuous: true })
-				await wrapper.start()
-				const instance = mockInstance(wrapper)
+				const { vocal, instance } = setup({ continuous: true })
+				await vocal.start()
 
 				instance.say('hello')
 				;(instance.addEventListener.mock.calls as [string, EventListener][])
@@ -812,8 +769,8 @@ describe('Vocal', () => {
 				instance.say('again')
 
 				const onResult = vi.fn()
-				wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-				wrapper.stop()
+				vocal.on(eventTypes.RESULT, onResult)
+				vocal.stop()
 
 				expect(onResult).toHaveBeenCalledTimes(1)
 				expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello again', ['hello again'])
@@ -824,9 +781,8 @@ describe('Vocal', () => {
 
 		it('falls back to the first alternative when confidence is missing', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 
 			instance.say('hello', [
 				{ transcript: 'hello' } as unknown as { transcript: string; confidence: number },
@@ -834,17 +790,16 @@ describe('Vocal', () => {
 			])
 
 			const onResult = vi.fn()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-			wrapper.stop()
+			vocal.on(eventTypes.RESULT, onResult)
+			vocal.stop()
 
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello', ['hello'])
 		})
 
 		it('picks the highest-confidence alternative when aggregating', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const wrapper = new Vocal({ continuous: true })
-			await wrapper.start()
-			const instance = mockInstance(wrapper)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
 
 			instance.say('helo', [
 				{ transcript: 'hello', confidence: 0.3 },
@@ -852,49 +807,35 @@ describe('Vocal', () => {
 			])
 
 			const onResult = vi.fn()
-			wrapper.addEventListener(Vocal.eventTypes.RESULT, onResult)
-			wrapper.stop()
+			vocal.on(eventTypes.RESULT, onResult)
+			vocal.stop()
 
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'helo', ['helo'])
 		})
 	})
 
 	describe('cleanup', () => {
-		let wrapper: Vocal
-		let instance: MockInstance
-
-		beforeEach(() => {
-			wrapper = new Vocal()
-			instance = mockInstance(wrapper)
-		})
-
 		it('calls stop on the instance', () => {
-			wrapper.cleanup()
+			const { vocal, instance } = setup()
+			vocal.cleanup()
 			expect(instance.stop).toHaveBeenCalled()
 		})
 
 		it('removes all registered listeners', () => {
-			wrapper.addEventListener(Vocal.eventTypes.START, vi.fn())
-			wrapper.addEventListener(Vocal.eventTypes.END, vi.fn())
-			wrapper.cleanup()
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.START, vi.fn())
+			vocal.on(eventTypes.END, vi.fn())
+			vocal.cleanup()
 			expect(instance.removeEventListener).toHaveBeenCalledTimes(6)
 		})
 
 		it('removes the internal end, start, error and result listeners on cleanup', () => {
-			wrapper.cleanup()
+			const { vocal, instance } = setup()
+			vocal.cleanup()
 			expect(instance.removeEventListener).toHaveBeenCalledWith('end', expect.any(Function))
 			expect(instance.removeEventListener).toHaveBeenCalledWith('start', expect.any(Function))
 			expect(instance.removeEventListener).toHaveBeenCalledWith('error', expect.any(Function))
 			expect(instance.removeEventListener).toHaveBeenCalledWith('result', expect.any(Function))
-		})
-
-		it('nulls the instance', () => {
-			wrapper.cleanup()
-			expect(mockInstance(wrapper)).toBeNull()
-		})
-
-		it('returns this for chaining', () => {
-			expect(wrapper.cleanup()).toBe(wrapper)
 		})
 	})
 })
