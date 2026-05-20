@@ -72,6 +72,10 @@ Browsers (notably Chrome) automatically end a recognition session after a few se
 
 The restart is disabled automatically when the recognition emits a fatal error (`not-allowed`, `service-not-allowed`, `audio-capture`).
 
+#### Aggregated result on stop
+
+To compensate for results being split across silent restart cycles, Vocal accumulates every final result (`isFinal: true`) received during a session. On explicit `stop()`, an extra `result` event is emitted just before `end`, carrying the joined transcripts as a single string. Interim results and `abort()` are excluded — `abort()` discards the buffer without emitting.
+
 ## Events
 
 Events described below are those from the `SpeechRecognition` Web API.  
