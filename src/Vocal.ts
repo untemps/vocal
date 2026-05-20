@@ -31,6 +31,7 @@ export type EventHandlerFor<T extends EventType> = T extends 'result'
 type EventHandler = (...args: unknown[]) => void
 
 const RESTART_THROTTLE_MS = 1000
+const FATAL_ERRORS: ReadonlySet<string> = new Set(['not-allowed', 'service-not-allowed', 'audio-capture'])
 
 class Vocal {
 	static defaultOptions: Required<VocalOptions> = {
@@ -78,13 +79,11 @@ class Vocal {
 
 	private _onEnd = (event: Event): void => {
 		if (this._shouldAutoRestart()) {
-			// Workaround Chrome: silence timeout (~7s) forces `end` even with continuous=true.
-			// Restart with throttle to avoid InvalidStateError; swallow the intermediate `end`.
-			const elapsed = Date.now() - this._lastStartedAt
-			const delay = elapsed < RESTART_THROTTLE_MS ? RESTART_THROTTLE_MS - elapsed : 0
+			// Chrome enforces a ~7s silence timeout even with continuous=true; restart transparently.
+			const delay = Math.max(0, RESTART_THROTTLE_MS - (Date.now() - this._lastStartedAt))
 			this._isRestarting = true
 			this._restartTimeoutId = setTimeout(() => this._restart(), delay)
-			event?.stopImmediatePropagation?.()
+			event.stopImmediatePropagation()
 			return
 		}
 		this._isRecording = false
@@ -92,7 +91,7 @@ class Vocal {
 
 	private _onStart = (event: Event): void => {
 		if (this._isRestarting) {
-			event?.stopImmediatePropagation?.()
+			event.stopImmediatePropagation()
 			// Defer reset so user-side 'start' wrappers in the same tick still see the flag and swallow.
 			queueMicrotask(() => {
 				this._isRestarting = false
@@ -101,8 +100,7 @@ class Vocal {
 	}
 
 	private _onError = (event: Event): void => {
-		const errorType = (event as SpeechRecognitionErrorEvent).error
-		if (errorType === 'not-allowed' || errorType === 'service-not-allowed' || errorType === 'audio-capture') {
+		if (FATAL_ERRORS.has((event as SpeechRecognitionErrorEvent).error)) {
 			this._explicitStop = true
 			this._clearRestartTimeout()
 			this._isRecording = false
@@ -113,9 +111,7 @@ class Vocal {
 		const speechEvent = event as SpeechRecognitionEvent
 		const result = speechEvent.results?.[speechEvent.resultIndex]
 		if (!result?.isFinal) return
-		const alternatives = Array.from(result)
-		const best = alternatives.reduce((a, b) => ((b.confidence ?? 0) > (a.confidence ?? 0) ? b : a))
-		this._finalTranscripts.push(best.transcript)
+		this._finalTranscripts.push(Vocal._pickBestAlternative(Array.from(result)).transcript)
 	}
 
 	constructor(options?: VocalOptions) {
@@ -141,10 +137,10 @@ class Vocal {
 			instance.grammars = grammars
 		}
 
-		this._instance.addEventListener('end', this._onEnd)
-		this._instance.addEventListener('start', this._onStart)
-		this._instance.addEventListener('error', this._onError)
-		this._instance.addEventListener('result', this._onResult)
+		this._instance.addEventListener(Vocal.eventTypes.END, this._onEnd)
+		this._instance.addEventListener(Vocal.eventTypes.START, this._onStart)
+		this._instance.addEventListener(Vocal.eventTypes.ERROR, this._onError)
+		this._instance.addEventListener(Vocal.eventTypes.RESULT, this._onResult)
 	}
 
 	get isRecording(): boolean {
@@ -223,11 +219,8 @@ class Vocal {
 					const speechEvent = event as SpeechRecognitionEvent
 					if (speechEvent.results?.length > 0 && speechEvent.resultIndex < speechEvent.results.length) {
 						const alternatives = Array.from(speechEvent.results[speechEvent.resultIndex])
-						const bestAlternative = alternatives.reduce((a, b) =>
-							(b.confidence ?? 0) > (a.confidence ?? 0) ? b : a
-						)
 						additionalArgs.push(
-							bestAlternative.transcript,
+							Vocal._pickBestAlternative(alternatives).transcript,
 							alternatives.map((a) => a.transcript)
 						)
 					}
@@ -286,10 +279,10 @@ class Vocal {
 		this.stop()
 
 		Object.keys(this._listeners).forEach((key) => this.removeEventListener(key as EventType))
-		this._instance?.removeEventListener('end', this._onEnd)
-		this._instance?.removeEventListener('start', this._onStart)
-		this._instance?.removeEventListener('error', this._onError)
-		this._instance?.removeEventListener('result', this._onResult)
+		this._instance?.removeEventListener(Vocal.eventTypes.END, this._onEnd)
+		this._instance?.removeEventListener(Vocal.eventTypes.START, this._onStart)
+		this._instance?.removeEventListener(Vocal.eventTypes.ERROR, this._onError)
+		this._instance?.removeEventListener(Vocal.eventTypes.RESULT, this._onResult)
 		this._instance = null
 
 		return this
@@ -312,16 +305,18 @@ class Vocal {
 		if (transcripts.length === 0) return
 
 		const aggregated = transcripts.join(' ').trim()
-		const result = Object.assign([{ transcript: aggregated, confidence: 1 }], {
-			isFinal: true,
-			length: 1,
-		})
+		const result = Object.assign([{ transcript: aggregated, confidence: 1 }], { isFinal: true })
 		const event = Object.assign(new Event(Vocal.eventTypes.RESULT), {
 			resultIndex: 0,
 			results: [result],
 		})
 
-		this._listeners[Vocal.eventTypes.RESULT]?.forEach(({ handler }) => handler(event))
+		// Snapshot listeners to stay safe if a handler removes itself during dispatch.
+		;[...(this._listeners[Vocal.eventTypes.RESULT] ?? [])].forEach(({ handler }) => handler(event))
+	}
+
+	private static _pickBestAlternative<T extends { confidence?: number }>(alternatives: T[]): T {
+		return alternatives.reduce((a, b) => ((b.confidence ?? 0) > (a.confidence ?? 0) ? b : a))
 	}
 
 	private _shouldAutoRestart(): boolean {
