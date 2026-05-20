@@ -1,3 +1,20 @@
+# [2.0.0-beta.20](https://github.com/untemps/vocal/compare/v2.0.0-beta.19...v2.0.0-beta.20) (2026-05-20)
+
+
+### Features
+
+* Auto-restart recognition on silence in continuous mode ([#84](https://github.com/untemps/vocal/issues/84)) ([79a55f5](https://github.com/untemps/vocal/commit/79a55f5e295d2027a1473ce59872e6a09b4655c1))
+
+
+### BREAKING CHANGES
+
+* continuous mode now keeps the session alive across silence and aggregates results — semantics that callers using `continuous: true` must adapt to:
+- Recording no longer ends after ~7s of silence; call `stop()` or `abort()` explicitly to terminate the session.
+- A synthetic `result` event is emitted just before `end` on `stop()`, carrying the joined final transcripts. `event instanceof SpeechRecognitionEvent` returns `false` for this event — read the transcript through the listener's second argument (`(event, bestAlternative, alternatives) => ...`).
+- Intermediate `end` and `start` events fired by the browser during silent restart cycles are no longer forwarded to user listeners. `isRecording` stays `true` across the cycle.
+- `abort()` discards the aggregated buffer without emitting.
+`continuous: false` consumers see no behavioural change.
+
 # [2.0.0-beta.19](https://github.com/untemps/vocal/compare/v2.0.0-beta.18...v2.0.0-beta.19) (2026-05-17)
 
 # [2.0.0-beta.18](https://github.com/untemps/vocal/compare/v2.0.0-beta.17...v2.0.0-beta.18) (2026-05-16)
