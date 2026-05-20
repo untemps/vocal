@@ -320,11 +320,7 @@ class Vocal {
 	}
 
 	private _shouldAutoRestart(): boolean {
-		return (
-			!!this._instance &&
-			!this._explicitStop &&
-			!!(this._instance as unknown as { continuous: boolean }).continuous
-		)
+		return !!this._instance && !this._explicitStop && this._instance.continuous
 	}
 
 	private _clearRestartTimeout(): void {

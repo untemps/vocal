@@ -597,6 +597,20 @@ describe('Vocal', () => {
 			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
 		})
 
+		it('cancels the scheduled restart when abort() is called during the throttle window', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const wrapper = new Vocal({ continuous: true })
+			await wrapper.start()
+			const instance = mockInstance(wrapper)
+			const initialStartCalls = (instance.start as MockFn).mock.calls.length
+
+			fireEnd(instance)
+			wrapper.abort()
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
+		})
+
 		it('disables auto-restart on not-allowed error', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const wrapper = new Vocal({ continuous: true })
