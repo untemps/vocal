@@ -807,7 +807,6 @@ describe('Vocal', () => {
 
 			instance.say('hello')
 			instance.say('world')
-			onResult.mockClear()
 
 			vocal.stop()
 
@@ -838,12 +837,14 @@ describe('Vocal', () => {
 
 			instance.say('partial', undefined, { isFinal: false })
 			instance.say('final', undefined, { isFinal: true })
-			onResult.mockClear()
+
+			expect(onResult).toHaveBeenCalledTimes(1)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'partial', ['partial'])
 
 			vocal.stop()
 
-			expect(onResult).toHaveBeenCalledTimes(1)
-			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'final', ['final'])
+			expect(onResult).toHaveBeenCalledTimes(2)
+			expect(onResult).toHaveBeenLastCalledWith(expect.any(Event), 'final', ['final'])
 		})
 
 		it('does not emit on abort() and clears the buffer', async () => {
