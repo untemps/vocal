@@ -128,6 +128,22 @@ const resolveSpeechGrammarList = (): typeof SpeechGrammarList | undefined =>
 const pickBestAlternative = <T extends { confidence?: number }>(alternatives: T[]): T =>
 	alternatives.reduce((a, b) => ((b.confidence ?? 0) > (a.confidence ?? 0) ? b : a))
 
+// Wrap a plain alternatives array so it satisfies SpeechRecognitionResult (isFinal + item()),
+// matching the lib.dom contract for consumers that call `event.results.item(i).item(j)`.
+const makeSyntheticResult = (alternatives: SpeechRecognitionAlternative[]): SpeechRecognitionResult => {
+	const result = alternatives.slice() as unknown as SpeechRecognitionResult & SpeechRecognitionAlternative[]
+	Object.defineProperty(result, 'isFinal', { value: true, enumerable: true })
+	Object.defineProperty(result, 'item', { value: (index: number) => alternatives[index] })
+	return result
+}
+
+// Wrap a plain results array so it satisfies SpeechRecognitionResultList (length + item()).
+const makeSyntheticResults = (results: SpeechRecognitionResult[]): SpeechRecognitionResultList => {
+	const list = results.slice() as unknown as SpeechRecognitionResultList & SpeechRecognitionResult[]
+	Object.defineProperty(list, 'item', { value: (index: number) => results[index] })
+	return list
+}
+
 const includesEventType = (eventType: string): boolean => Object.values(eventTypes).includes(eventType as EventType)
 
 const unknownEventTypeMessage = (eventType: string): string =>
@@ -197,10 +213,10 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!listeners[eventTypes.RESULT]?.length) return
 
 		const aggregatedTranscripts = transcripts.join(' ').trim()
-		const result = Object.assign([{ transcript: aggregatedTranscripts, confidence: 1 }], { isFinal: true })
+		const result = makeSyntheticResult([{ transcript: aggregatedTranscripts, confidence: 1 }])
 		const event = Object.assign(new Event(eventTypes.RESULT), {
 			resultIndex: 0,
-			results: [result],
+			results: makeSyntheticResults([result]),
 		})
 
 		// Snapshot listeners to stay safe if a handler removes itself during dispatch.
