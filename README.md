@@ -14,7 +14,14 @@ Functional wrapper around the SpeechRecognition Web API
 ## Installation
 
 ```bash
+# yarn
 yarn add @untemps/vocal
+
+# npm
+npm install @untemps/vocal
+
+# pnpm
+pnpm add @untemps/vocal
 ```
 
 ## Basic Usage
