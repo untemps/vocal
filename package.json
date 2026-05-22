@@ -1,7 +1,7 @@
 {
 	"name": "@untemps/vocal",
 	"version": "2.0.0-beta.26",
-	"description": "Class wrapped around the SpeechRecognition Web API",
+	"description": "Functional wrapper around the SpeechRecognition Web API",
 	"repository": "git@github.com:untemps/vocal.git",
 	"keywords": [
 		"Web Speech API",
