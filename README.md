@@ -81,9 +81,15 @@ The restart is disabled automatically when the recognition emits a fatal error (
 
 #### Aggregated result on stop
 
-To compensate for results being split across silent restart cycles, Vocal accumulates every final result (`isFinal: true`) received during a session. On explicit `stop()`, an extra `result` event is emitted just before `end`, carrying the joined transcripts as a single string. Interim results and `abort()` are excluded — `abort()` discards the buffer without emitting.
+To compensate for results being split across silent restart cycles, Vocal accumulates every final result (`isFinal: true`) received during a session. On explicit `stop()`, a single `result` event carrying the joined transcripts is emitted alongside the `end` event — in `continuous: true` mode, this aggregated event is the only `result` your listener receives (intermediate finals are suppressed). Interim results and `abort()` are excluded — `abort()` discards the buffer without emitting.
 
-The aggregated event is a synthetic `Event` shaped to match `SpeechRecognitionEvent` (`resultIndex` + `results[0][0].transcript`); it is not a real `SpeechRecognitionEvent` instance, so `event instanceof SpeechRecognitionEvent` returns `false`. Read the transcript through the second argument of the listener (`bestAlternative`).
+The aggregated event is a synthetic `Event` shaped to match `SpeechRecognitionEvent`: it carries `resultIndex` plus a `results` list whose entries support both index access (`results[0][0]`) and the lib.dom `.item()` accessor (`results.item(0).item(0)`). It is not a real `SpeechRecognitionEvent` instance, so `event instanceof SpeechRecognitionEvent` returns `false`. The most portable pattern is to read the joined transcript through the second argument of the listener — it works identically for real and synthetic events:
+
+```ts
+vocal.on('result', (event, bestAlternative) => {
+  console.log(bestAlternative) // works for both real and synthetic events
+})
+```
 
 ## Events
 
