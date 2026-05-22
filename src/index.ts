@@ -1,6 +1,7 @@
-export { default as Vocal } from './Vocal'
+export { createVocal, isSupported, eventTypes } from './Vocal'
 export type {
 	VocalOptions,
+	VocalInstance,
 	EventType,
 	ResultEventHandler,
 	ErrorEventHandler,

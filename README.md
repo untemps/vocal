@@ -1,6 +1,6 @@
 # @untemps/vocal
 
-Class wrapped around the SpeechRecognition Web API
+Functional wrapper around the SpeechRecognition Web API
 
 ![npm](https://img.shields.io/npm/v/@untemps/vocal?style=for-the-badge)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/untemps/vocal/publish.yml?style=for-the-badge)
@@ -21,27 +21,22 @@ pnpm add @untemps/vocal
 
 ## Basic Usage
 
-Import `Vocal` to a file.
-
 ```javascript
-import { Vocal } from '@untemps/vocal'
+import { createVocal, isSupported } from '@untemps/vocal'
 
 // Check whether SpeechRecognition, Permissions and MediaDevices interfaces are supported
-if (!Vocal.isSupported) {
+if (!isSupported()) {
   throw new Error('Vocal is not supported')
 }
 
 // Create a Vocal instance (see below for all available option properties)
-const options = {
-    lang: 'fr-FR',
-}
-const vocal = new Vocal(options)
+const vocal = createVocal({ lang: 'fr-FR' })
 
-// Subscribe to Vocal instance events (see below for all available events)
-vocal.addEventListener('speechstart', (event) => console.log('Vocal starts recording'))
-vocal.addEventListener('speechend', (event) => console.log('Vocal stops recording'))
-vocal.addEventListener('result', (event, bestAlternative, alternatives) => console.log('Vocal catches a result:', bestAlternative, alternatives))
-vocal.addEventListener('error', (event) => console.error(event.error, event.message))
+// Subscribe to instance events (see below for all available events)
+vocal.on('speechstart', (event) => console.log('Vocal starts recording'))
+vocal.on('speechend', (event) => console.log('Vocal stops recording'))
+vocal.on('result', (event, bestAlternative, alternatives) => console.log('Vocal catches a result:', bestAlternative, alternatives))
+vocal.on('error', (event) => console.error(event.error, event.message))
 
 // Start recording — rejects on error
 try {
@@ -56,7 +51,7 @@ vocal.stop()
 // Abort recording entirely
 vocal.abort()
 
-// Remove all attached listeners and delete the Vocal instance
+// Remove all attached listeners and release the internal SpeechRecognition instance
 vocal.cleanup()
 ```
 
@@ -104,16 +99,32 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | speechstart | Fired when sound recognized by the recognition service as speech has been detected        |
 | start       | fired when the recognition service has begun listening to incoming audio                  |
 
-## Getters
+For convenience, `eventTypes` is exported as a constant map so consumers can reference type strings symbolically:
 
-| Getter      | Type                      | Description                                                                                                          |
-| ----------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| isSupported | boolean                   | Whether the current environment supports the SpeechRecognition Web API (static)                                      |
-| isRecording | boolean                   | Whether recognition is currently active — `true` after `start()`, `false` after `stop()`, `abort()`, or `end` event |
+```js
+import { eventTypes } from '@untemps/vocal'
+vocal.on(eventTypes.RESULT, handler)
+```
+
+## Top-level exports
+
+| Export        | Kind     | Description                                                                                                          |
+| ------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `createVocal` | function | Factory that returns a `VocalInstance`. See [Methods](#methods).                                                     |
+| `isSupported` | function | Returns `true` if the current environment supports the SpeechRecognition Web API. Call it (it is **not** a getter).  |
+| `eventTypes`  | const    | Map of valid event type strings (e.g. `eventTypes.RESULT === 'result'`).                                             |
+
+## Instance getter
+
+| Getter      | Type      | Description                                                                                                          |
+| ----------- | --------- | -------------------------------------------------------------------------------------------------------------------- |
+| isRecording | boolean   | Whether recognition is currently active — `true` after `start()`, `false` after `stop()`, `abort()`, or `end` event |
 
 ## Methods
 
 ### `start({ signal? })`
+
+Starts recognition. Resolves once the engine is active. Rejects if microphone permission cannot be obtained.
 
 | Parameter | Type          | Default     | Description                                                                   |
 | --------- | ------------- | ----------- | ----------------------------------------------------------------------------- |
@@ -129,13 +140,13 @@ controller.abort()
 
 ### `stop()`
 
-Stops recognition gracefully, allowing the current audio to be processed before disconnecting. Sets `isRecording` to `false`.
+Stops recognition gracefully, allowing the current audio to be processed before disconnecting. Sets `isRecording` to `false`. In continuous mode, emits the aggregated `result` event just before `end`.
 
 ### `abort()`
 
-Stops recognition immediately without processing pending audio. Sets `isRecording` to `false`.
+Stops recognition immediately without processing pending audio. Sets `isRecording` to `false`. Discards any aggregated transcript without emitting.
 
-### `addEventListener(eventType, callback)`
+### `on(eventType, callback)`
 
 Registers a callback for the given event type. Multiple callbacks can be registered for the same type — they stack and all fire in registration order.
 
@@ -146,7 +157,7 @@ Registers a callback for the given event type. Multiple callbacks can be registe
 
 Throws if `eventType` is not a valid `EventType`.
 
-### `removeEventListener(eventType, callback?)`
+### `off(eventType, callback?)`
 
 Removes a listener for the given event type.
 
@@ -159,5 +170,24 @@ Throws if `eventType` is not a valid `EventType`.
 
 ### `cleanup()`
 
-Stops recognition, removes all registered listeners, and releases the internal `SpeechRecognition` instance. The `Vocal` object cannot be reused after `cleanup()`.
+Stops recognition, removes all registered listeners, and releases the internal `SpeechRecognition` instance. The returned `VocalInstance` cannot be reused after `cleanup()`.
 
+## Migration from the class-based API (v1.x)
+
+```js
+// Before
+import { Vocal } from '@untemps/vocal'
+if (!Vocal.isSupported) throw new Error()
+const vocal = new Vocal({ lang: 'fr-FR' })
+vocal.addEventListener('result', cb)
+vocal.removeEventListener('result', cb)
+
+// After
+import { createVocal, isSupported } from '@untemps/vocal'
+if (!isSupported()) throw new Error()
+const vocal = createVocal({ lang: 'fr-FR' })
+vocal.on('result', cb)
+vocal.off('result', cb)
+```
+
+Side-effect methods (`stop`, `abort`, `on`, `off`, `cleanup`) now return `void` — method chaining is no longer supported. `Vocal.eventTypes` is now exported as the top-level `eventTypes` const.
