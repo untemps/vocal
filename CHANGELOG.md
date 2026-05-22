@@ -1,3 +1,10 @@
+# [2.0.0-beta.29](https://github.com/untemps/vocal/compare/v2.0.0-beta.28...v2.0.0-beta.29) (2026-05-22)
+
+
+### Bug Fixes
+
+* Re-check instance after getUserMediaStream awaits in start() ([#121](https://github.com/untemps/vocal/issues/121)) ([7819add](https://github.com/untemps/vocal/commit/7819add449992a2f319224768d900d8d54b6f6db))
+
 # [2.0.0-beta.28](https://github.com/untemps/vocal/compare/v2.0.0-beta.27...v2.0.0-beta.28) (2026-05-22)
 
 # [2.0.0-beta.27](https://github.com/untemps/vocal/compare/v2.0.0-beta.26...v2.0.0-beta.27) (2026-05-22)
