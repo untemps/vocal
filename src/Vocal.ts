@@ -130,17 +130,19 @@ const pickBestAlternative = <T extends { confidence?: number }>(alternatives: T[
 
 // Wrap a plain alternatives array so it satisfies SpeechRecognitionResult (isFinal + item()),
 // matching the lib.dom contract for consumers that call `event.results.item(i).item(j)`.
+// isFinal and item are non-enumerable to mirror how lib.dom exposes them and to keep
+// JSON.stringify output identical to the underlying alternatives array.
 const makeSyntheticResult = (alternatives: SpeechRecognitionAlternative[]): SpeechRecognitionResult => {
 	const result = alternatives.slice() as unknown as SpeechRecognitionResult & SpeechRecognitionAlternative[]
-	Object.defineProperty(result, 'isFinal', { value: true, enumerable: true })
-	Object.defineProperty(result, 'item', { value: (index: number) => alternatives[index] })
+	Object.defineProperty(result, 'isFinal', { value: true })
+	Object.defineProperty(result, 'item', { value: (index: number) => result[index] })
 	return result
 }
 
 // Wrap a plain results array so it satisfies SpeechRecognitionResultList (length + item()).
 const makeSyntheticResults = (results: SpeechRecognitionResult[]): SpeechRecognitionResultList => {
 	const list = results.slice() as unknown as SpeechRecognitionResultList & SpeechRecognitionResult[]
-	Object.defineProperty(list, 'item', { value: (index: number) => results[index] })
+	Object.defineProperty(list, 'item', { value: (index: number) => list[index] })
 	return list
 }
 

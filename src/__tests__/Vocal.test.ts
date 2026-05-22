@@ -829,8 +829,10 @@ describe('Vocal', () => {
 			expect(onResult).toHaveBeenCalledTimes(1)
 			const event = onResult.mock.calls[0][0] as SpeechRecognitionEvent
 			expect(typeof event.results.item).toBe('function')
+			expect(event.results.length).toBe(1)
 			const firstResult = event.results.item(0)
 			expect(firstResult.isFinal).toBe(true)
+			expect(firstResult.length).toBe(1)
 			expect(typeof firstResult.item).toBe('function')
 			expect(firstResult.item(0).transcript).toBe('hello world')
 		})
