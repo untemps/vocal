@@ -683,7 +683,7 @@ describe('Vocal', () => {
 	})
 
 	describe('aggregated result on stop()', () => {
-		it('does not propagate intermediate final results to user listeners in continuous mode', async () => {
+		it('does not propagate intermediate final results but still accumulates them in continuous mode', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const { vocal, instance } = setup({ continuous: true })
 			await vocal.start()
@@ -695,6 +695,11 @@ describe('Vocal', () => {
 			instance.say('world')
 
 			expect(onResult).not.toHaveBeenCalled()
+
+			vocal.stop()
+
+			expect(onResult).toHaveBeenCalledTimes(1)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello world', ['hello world'])
 		})
 
 		it('still propagates interim results to user listeners in continuous mode', async () => {
