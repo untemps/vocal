@@ -108,16 +108,17 @@ global.SpeechRecognition = vi.fn(function () {
 			dispatch('speechstart')
 
 			const alts = alternatives ?? [sentence]
-			const result = Object.assign(
-				alts.map((t) => (typeof t === 'string' ? { transcript: t, confidence: 0 } : t)),
-				{ isFinal: options?.isFinal ?? true }
-			)
+			const result = alts.map((t) => (typeof t === 'string' ? { transcript: t, confidence: 0 } : t))
+			Object.defineProperty(result, 'isFinal', { value: options?.isFinal ?? true })
+			Object.defineProperty(result, 'item', { value: (index: number) => result[index] })
+			const results = [result]
+			Object.defineProperty(results, 'item', { value: (index: number) => results[index] })
 			const resultEvent = new Event('result') as Event & {
 				resultIndex: number
-				results: (typeof result)[]
+				results: typeof results
 			}
 			resultEvent.resultIndex = 0
-			resultEvent.results = [result]
+			resultEvent.results = results
 			if (sentence) {
 				dispatch('result', resultEvent)
 			} else {
