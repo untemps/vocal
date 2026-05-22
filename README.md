@@ -9,7 +9,14 @@ Class wrapped around the SpeechRecognition Web API
 ## Installation
 
 ```bash
+# yarn
 yarn add @untemps/vocal
+
+# npm
+npm install @untemps/vocal
+
+# pnpm
+pnpm add @untemps/vocal
 ```
 
 ## Basic Usage
@@ -75,7 +82,7 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | end         | Fired when the recognition service has disconnected                                       |
 | error       | Fired when a recognition error occurs                                                     |
 | nomatch     | Fired when the recognition service returns a final result with no significant recognition |
-| result      | Fired when the recognition service returns a result — callback receives `(event, transcript: string, alternatives: string[])` where `transcript === alternatives[0]` |
+| result      | Fired when the recognition service returns a result — callback receives `(event, transcript: string, alternatives: string[])` where `transcript === alternatives[0]`. **In `continuous: true` mode, intermediate final results are deferred until explicit `stop()`.** |
 | soundend    | Fired when any sound — recognisable or not — has stopped being detected                   |
 | soundstart  | Fired when any sound — recognisable or not — has been detected                            |
 | speechend   | Fired when speech recognized by the recognition service has stopped being detected        |
