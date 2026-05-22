@@ -109,18 +109,18 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	let isRestarting = false
 	let finalTranscripts: string[] = []
 
-	const resolved: Required<VocalOptions> = {
+	const resolvedOptions: Required<VocalOptions> = {
 		...defaultOptions,
 		...(options ?? {}),
 	}
 
-	instance.lang = resolved.lang
-	instance.continuous = resolved.continuous
-	instance.interimResults = resolved.interimResults
-	instance.maxAlternatives = resolved.maxAlternatives
+	instance.lang = resolvedOptions.lang
+	instance.continuous = resolvedOptions.continuous
+	instance.interimResults = resolvedOptions.interimResults
+	instance.maxAlternatives = resolvedOptions.maxAlternatives
 
-	if (resolved.grammars) {
-		instance.grammars = resolved.grammars
+	if (resolvedOptions.grammars) {
+		instance.grammars = resolvedOptions.grammars
 	} else {
 		const SpeechGrammarList = resolveSpeechGrammarList()
 		instance.grammars = SpeechGrammarList ? new SpeechGrammarList() : null
@@ -153,8 +153,8 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (transcripts.length === 0) return
 		if (!listeners[eventTypes.RESULT]?.length) return
 
-		const aggregated = transcripts.join(' ').trim()
-		const result = Object.assign([{ transcript: aggregated, confidence: 1 }], { isFinal: true })
+		const aggregatedTranscripts = transcripts.join(' ').trim()
+		const result = Object.assign([{ transcript: aggregatedTranscripts, confidence: 1 }], { isFinal: true })
 		const event = Object.assign(new Event(eventTypes.RESULT), {
 			resultIndex: 0,
 			results: [result],
