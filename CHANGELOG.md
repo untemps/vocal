@@ -1,3 +1,5 @@
+# [2.0.0-beta.25](https://github.com/untemps/vocal/compare/v2.0.0-beta.24...v2.0.0-beta.25) (2026-05-22)
+
 # [2.0.0-beta.24](https://github.com/untemps/vocal/compare/v2.0.0-beta.23...v2.0.0-beta.24) (2026-05-22)
 
 # [2.0.0-beta.23](https://github.com/untemps/vocal/compare/v2.0.0-beta.22...v2.0.0-beta.23) (2026-05-22)
