@@ -97,7 +97,7 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | end         | Fired when the recognition service has disconnected                                       |
 | error       | Fired when a recognition error occurs                                                     |
 | nomatch     | Fired when the recognition service returns a final result with no significant recognition |
-| result      | Fired when the recognition service returns a result — callback receives `(event, bestAlternative: string, alternatives: string[])` where `bestAlternative` is the alternative with the highest confidence. **In `continuous: true` mode, intermediate final results are deferred until explicit `stop()`.** |
+| result      | Fired when the recognition service returns a result — callback receives `(event, bestAlternative: string, alternatives: string[])` where `bestAlternative` is the alternative with the highest confidence. **In `continuous: true` mode, intermediate final results are deferred until explicit `stop()` (see [Aggregated result on stop](#aggregated-result-on-stop)).** |
 | soundend    | Fired when any sound — recognisable or not — has stopped being detected                   |
 | soundstart  | Fired when any sound — recognisable or not — has been detected                            |
 | speechend   | Fired when speech recognized by the recognition service has stopped being detected        |
