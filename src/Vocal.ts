@@ -4,6 +4,48 @@ import {
 	getUserMediaStream,
 } from '@untemps/user-permissions-utils'
 
+// Web Speech API types missing from lib.dom in current TypeScript releases.
+// SpeechRecognitionEvent / SpeechRecognitionErrorEvent / SpeechRecognitionResult /
+// SpeechRecognitionAlternative ship with lib.dom; SpeechRecognition (the constructor)
+// and SpeechGrammarList do not, so we polyfill them here.
+declare global {
+	interface SpeechRecognition extends EventTarget {
+		continuous: boolean
+		grammars: SpeechGrammarList | null
+		interimResults: boolean
+		lang: string
+		maxAlternatives: number
+		start(): void
+		stop(): void
+		abort(): void
+	}
+
+	var SpeechRecognition: {
+		new (): SpeechRecognition
+		prototype: SpeechRecognition
+	}
+
+	interface SpeechGrammarList {
+		length: number
+	}
+
+	var SpeechGrammarList: {
+		new (): SpeechGrammarList
+		prototype: SpeechGrammarList
+	}
+
+	interface Window {
+		SpeechRecognition?: typeof SpeechRecognition
+		webkitSpeechRecognition?: typeof SpeechRecognition
+		mozSpeechRecognition?: typeof SpeechRecognition
+		msSpeechRecognition?: typeof SpeechRecognition
+		SpeechGrammarList?: typeof SpeechGrammarList
+		webkitSpeechGrammarList?: typeof SpeechGrammarList
+		mozSpeechGrammarList?: typeof SpeechGrammarList
+		msSpeechGrammarList?: typeof SpeechGrammarList
+	}
+}
+
 export interface VocalOptions {
 	grammars?: SpeechGrammarList | null
 	lang?: string
