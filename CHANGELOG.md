@@ -1,3 +1,35 @@
+# [2.0.0-beta.22](https://github.com/untemps/vocal/compare/v2.0.0-beta.21...v2.0.0-beta.22) (2026-05-22)
+
+
+### Code Refactoring
+
+* Move from class-based to functional API ([#88](https://github.com/untemps/vocal/issues/88)) ([1161ce8](https://github.com/untemps/vocal/commit/1161ce8ce983a7f216b5a11803bbc5ad90a68dc5))
+
+
+### BREAKING CHANGES
+
+* every public entry point changes shape:
+- `new Vocal(options)` → `createVocal(options)`
+- `Vocal.isSupported` (static getter) → `isSupported()` (function)
+- `Vocal.eventTypes` (static) → `eventTypes` (named export)
+- `vocal.addEventListener(type, cb)` → `vocal.on(type, cb)`
+- `vocal.removeEventListener(type, cb?)` → `vocal.off(type, cb?)`
+- Side-effect methods (`stop`, `abort`, `on`, `off`, `cleanup`) now
+  return `void` instead of `this` — chaining is no longer supported.
+- The `Vocal` class is no longer exported; the new `VocalInstance`
+  interface describes the object returned by `createVocal()`.
+Migration:
+  // before
+  import { Vocal } from '@untemps/vocal'
+  if (!Vocal.isSupported) throw new Error()
+  const vocal = new Vocal({ lang: 'fr-FR' })
+  vocal.addEventListener('result', cb)
+  // after
+  import { createVocal, isSupported } from '@untemps/vocal'
+  if (!isSupported()) throw new Error()
+  const vocal = createVocal({ lang: 'fr-FR' })
+  vocal.on('result', cb)
+
 # [2.0.0-beta.21](https://github.com/untemps/vocal/compare/v2.0.0-beta.20...v2.0.0-beta.21) (2026-05-20)
 
 
