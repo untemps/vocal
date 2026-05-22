@@ -716,6 +716,29 @@ describe('Vocal', () => {
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'partial', ['partial'])
 		})
 
+		it('forwards interims and aggregates finals in continuous + interimResults mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true, interimResults: true })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+
+			instance.say('hel', undefined, { isFinal: false })
+			instance.say('hello', undefined, { isFinal: false })
+			instance.say('hello', undefined, { isFinal: true })
+
+			expect(onResult).toHaveBeenCalledTimes(2)
+			expect(onResult.mock.calls[0]).toEqual([expect.any(Event), 'hel', ['hel']])
+			expect(onResult.mock.calls[1]).toEqual([expect.any(Event), 'hello', ['hello']])
+
+			onResult.mockClear()
+			vocal.stop()
+
+			expect(onResult).toHaveBeenCalledTimes(1)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello', ['hello'])
+		})
+
 		it('propagates final results to user listeners in non-continuous mode', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const { vocal, instance } = setup({ continuous: false })
