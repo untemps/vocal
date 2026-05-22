@@ -228,6 +228,18 @@ describe('Vocal', () => {
 			await vocal.start()
 			expect(spy).toHaveBeenCalledWith('microphone', { audio: true }, { signal: undefined })
 		})
+
+		it('does not start recognition when signal aborts after the stream resolves', async () => {
+			const controller = new AbortController()
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockImplementationOnce(async () => {
+				controller.abort()
+				return mockStream
+			})
+			const { vocal, instance } = setup()
+			await vocal.start({ signal: controller.signal })
+			expect(instance.start).not.toHaveBeenCalled()
+			expect(vocal.isRecording).toBe(false)
+		})
 	})
 
 	describe('stop', () => {
