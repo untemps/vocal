@@ -21,10 +21,9 @@
 		"node": ">=22"
 	},
 	"files": [
-		"dist/index.cjs",
-		"dist/index.es.js",
-		"dist/index.d.ts",
-		"dist/Vocal.d.ts",
+		"dist/*.cjs",
+		"dist/*.es.js",
+		"dist/*.d.ts",
 		"CHANGELOG.md"
 	],
 	"main": "dist/index.cjs",

@@ -25,6 +25,7 @@ jobs:
       - run: yarn typecheck
       - run: yarn test:ci
       - run: yarn build
+      - run: ./scripts/verify-consumer-types.sh
       - run: npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
