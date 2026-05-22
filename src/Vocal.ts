@@ -109,19 +109,21 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	let isRestarting = false
 	let finalTranscripts: string[] = []
 
-	const { grammars, ...rest }: Required<VocalOptions> = {
+	const resolved: Required<VocalOptions> = {
 		...defaultOptions,
 		...(options ?? {}),
 	}
 
-	const target = instance as unknown as Record<string, unknown>
-	Object.assign(target, rest)
+	instance.lang = resolved.lang
+	instance.continuous = resolved.continuous
+	instance.interimResults = resolved.interimResults
+	instance.maxAlternatives = resolved.maxAlternatives
 
-	if (!grammars) {
-		const SpeechGrammarList = resolveSpeechGrammarList()
-		target.grammars = SpeechGrammarList ? new SpeechGrammarList() : null
+	if (resolved.grammars) {
+		instance.grammars = resolved.grammars
 	} else {
-		target.grammars = grammars
+		const SpeechGrammarList = resolveSpeechGrammarList()
+		instance.grammars = SpeechGrammarList ? new SpeechGrammarList() : null
 	}
 
 	const clearRestartTimeout = (): void => {
@@ -149,6 +151,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		const transcripts = finalTranscripts
 		finalTranscripts = []
 		if (transcripts.length === 0) return
+		if (!listeners[eventTypes.RESULT]?.length) return
 
 		const aggregated = transcripts.join(' ').trim()
 		const result = Object.assign([{ transcript: aggregated, confidence: 1 }], { isFinal: true })
@@ -158,7 +161,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		})
 
 		// Snapshot listeners to stay safe if a handler removes itself during dispatch.
-		;[...(listeners[eventTypes.RESULT] ?? [])].forEach(({ handler }) => handler(event))
+		;[...listeners[eventTypes.RESULT]].forEach(({ handler }) => handler(event))
 	}
 
 	const onEnd = (event: Event): void => {
@@ -198,10 +201,13 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		finalTranscripts.push(pickBestAlternative(Array.from(result)).transcript)
 	}
 
-	instance.addEventListener(eventTypes.END, onEnd)
-	instance.addEventListener(eventTypes.START, onStart)
-	instance.addEventListener(eventTypes.ERROR, onError)
-	instance.addEventListener(eventTypes.RESULT, onResult)
+	const internalListeners: Array<[EventType, EventListener]> = [
+		[eventTypes.END, onEnd],
+		[eventTypes.START, onStart],
+		[eventTypes.ERROR, onError],
+		[eventTypes.RESULT, onResult],
+	]
+	internalListeners.forEach(([type, handler]) => instance!.addEventListener(type, handler))
 
 	const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
 		if (!instance) return
@@ -249,18 +255,21 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 			if (isRestarting && (eventType === eventTypes.END || eventType === eventTypes.START)) {
 				return
 			}
-			const additionalArgs: unknown[] = []
-			if (eventType === eventTypes.RESULT) {
-				const speechEvent = event as SpeechRecognitionEvent
-				if (speechEvent.results?.length > 0 && speechEvent.resultIndex < speechEvent.results.length) {
-					const alternatives = Array.from(speechEvent.results[speechEvent.resultIndex])
-					additionalArgs.push(
-						pickBestAlternative(alternatives).transcript,
-						alternatives.map((a) => a.transcript)
-					)
-				}
+			if (eventType !== eventTypes.RESULT) {
+				callback(event)
+				return
 			}
-			callback(event, ...additionalArgs)
+			const speechEvent = event as SpeechRecognitionEvent
+			if (!(speechEvent.results?.length > 0) || speechEvent.resultIndex >= speechEvent.results.length) {
+				callback(event)
+				return
+			}
+			const alternatives = Array.from(speechEvent.results[speechEvent.resultIndex])
+			callback(
+				event,
+				pickBestAlternative(alternatives).transcript,
+				alternatives.map((a) => a.transcript)
+			)
 		}
 		instance.addEventListener(eventType, handler as EventListener)
 
@@ -294,10 +303,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	const cleanup = (): void => {
 		stop()
 		Object.keys(listeners).forEach((key) => off(key))
-		instance?.removeEventListener(eventTypes.END, onEnd)
-		instance?.removeEventListener(eventTypes.START, onStart)
-		instance?.removeEventListener(eventTypes.ERROR, onError)
-		instance?.removeEventListener(eventTypes.RESULT, onResult)
+		internalListeners.forEach(([type, handler]) => instance?.removeEventListener(type, handler))
 		instance = null
 	}
 
