@@ -304,6 +304,19 @@ describe('Vocal', () => {
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello world', ['hello world'])
 		})
 
+		it('exposes item() on mocked RESULT events for lib.dom-compliant consumers', () => {
+			const onResult = vi.fn()
+			const { vocal, instance } = setup()
+			vocal.on(eventTypes.RESULT, onResult)
+			instance.say('hello')
+			const event = onResult.mock.calls[0][0] as SpeechRecognitionEvent
+			expect(typeof event.results.item).toBe('function')
+			const firstResult = event.results.item(0)
+			expect(firstResult.isFinal).toBe(true)
+			expect(typeof firstResult.item).toBe('function')
+			expect(firstResult.item(0).transcript).toBe('hello')
+		})
+
 		it('passes all alternatives when multiple are available', () => {
 			const onResult = vi.fn()
 			const { vocal, instance } = setup()
