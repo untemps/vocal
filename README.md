@@ -6,6 +6,11 @@ Functional wrapper around the SpeechRecognition Web API
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/untemps/vocal/publish.yml?style=for-the-badge)
 ![Codecov](https://img.shields.io/codecov/c/github/untemps/vocal?style=for-the-badge)
 
+## Requirements
+
+- A modern browser exposing the `SpeechRecognition` Web API (Chrome, Edge, Safari ≥ 14.1). The library is browser-only — it cannot run on the server.
+- **TypeScript ≥ 6.0** for full type resolution. The published declarations rely on `SpeechRecognitionEvent` and `SpeechRecognitionErrorEvent` shipped by `lib.dom` starting with TypeScript 6.0. If you target an older TypeScript release, install [`@types/dom-speech-recognition`](https://www.npmjs.com/package/@types/dom-speech-recognition) to provide the missing ambient declarations.
+
 ## Installation
 
 ```bash
