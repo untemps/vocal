@@ -683,6 +683,48 @@ describe('Vocal', () => {
 	})
 
 	describe('aggregated result on stop()', () => {
+		it('does not propagate intermediate final results to user listeners in continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+
+			instance.say('hello')
+			instance.say('world')
+
+			expect(onResult).not.toHaveBeenCalled()
+		})
+
+		it('still propagates interim results to user listeners in continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true, interimResults: true })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+
+			instance.say('partial', undefined, { isFinal: false })
+
+			expect(onResult).toHaveBeenCalledTimes(1)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'partial', ['partial'])
+		})
+
+		it('propagates final results to user listeners in non-continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: false })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+
+			instance.say('hello')
+
+			expect(onResult).toHaveBeenCalledTimes(1)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello', ['hello'])
+		})
+
 		it('emits a synthetic result event with the joined final transcripts', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const { vocal, instance } = setup({ continuous: true })
