@@ -130,7 +130,9 @@ function initVocal() {
 		updateStatus()
 	})
 
-	vocal.on('nomatch', logEvent('nomatch'))
+	vocal.on('nomatch',     logEvent('nomatch'))
+	vocal.on('speechstart', logEvent('speechstart'))
+	vocal.on('speechend',   logEvent('speechend'))
 
 	log('init', JSON.stringify(options))
 	updateStatus()
