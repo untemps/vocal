@@ -240,6 +240,23 @@ describe('Vocal', () => {
 			expect(instance.start).not.toHaveBeenCalled()
 			expect(vocal.isRecording).toBe(false)
 		})
+
+		it('does not start recognition when cleanup runs while getUserMediaStream is pending', async () => {
+			let resolveStream!: (stream: MediaStream) => void
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockImplementationOnce(
+				() =>
+					new Promise<MediaStream>((resolve) => {
+						resolveStream = resolve
+					})
+			)
+			const { vocal, instance } = setup()
+			const startPromise = vocal.start()
+			vocal.cleanup()
+			resolveStream(mockStream)
+			await expect(startPromise).resolves.toBeUndefined()
+			expect(instance.start).not.toHaveBeenCalled()
+			expect(vocal.isRecording).toBe(false)
+		})
 	})
 
 	describe('stop', () => {
