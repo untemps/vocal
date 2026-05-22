@@ -24,6 +24,7 @@
 		"dist/index.cjs",
 		"dist/index.es.js",
 		"dist/index.d.ts",
+		"dist/Vocal.d.ts",
 		"CHANGELOG.md"
 	],
 	"main": "dist/index.cjs",
