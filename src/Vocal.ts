@@ -265,6 +265,8 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		try {
 			const stream = (await getUserMediaStream('microphone', { audio: true }, { signal })) as MediaStream | null
 			if (signal?.aborted) return
+			// Re-check after the await: cleanup() may have nulled instance while we awaited.
+			if (!instance) return
 			if (!stream) {
 				throw new Error('Unable to retrieve the stream from media device')
 			}
