@@ -179,6 +179,8 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 			event.stopImmediatePropagation()
 			return
 		}
+		// Flush here (not in stop()) so trailing finals emitted between instance.stop() and 'end' are included.
+		emitAggregatedResult()
 		isRecording = false
 	}
 
@@ -201,6 +203,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	}
 
 	const onResult = (event: Event): void => {
+		if (!resolvedOptions.continuous) return
 		const speechEvent = event as SpeechRecognitionEvent
 		const result = speechEvent.results?.[speechEvent.resultIndex]
 		if (!result?.isFinal) return
@@ -238,7 +241,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!instance) return
 		explicitStop = true
 		clearRestartTimeout()
-		emitAggregatedResult()
 		instance.stop()
 		isRecording = false
 	}
@@ -247,9 +249,10 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!instance) return
 		explicitStop = true
 		clearRestartTimeout()
+		// Clear before instance.abort() so the resulting 'end' → onEnd → emitAggregatedResult is a no-op.
+		finalTranscripts = []
 		instance.abort()
 		isRecording = false
-		finalTranscripts = []
 	}
 
 	const on = (eventType: string, callback: EventHandler): void => {

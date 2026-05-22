@@ -725,6 +725,50 @@ describe('Vocal', () => {
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello', ['hello'])
 		})
 
+		it('emits the result only once on stop() in non-continuous mode', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: false })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+
+			instance.say('hello')
+			vocal.stop()
+
+			expect(onResult).toHaveBeenCalledTimes(1)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello', ['hello'])
+		})
+
+		it('includes trailing finals emitted between instance.stop() and end in the aggregate', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+
+			instance.say('hello')
+
+			const onResult = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+
+			const calls = instance.addEventListener.mock.calls as unknown as [string, EventListener][]
+			const fireToHandlers = (type: string, event: Event) =>
+				calls.filter(([t]) => t === type).forEach(([, h]) => h(event))
+
+			instance.stop.mockImplementationOnce(() => {
+				const trailing = Object.assign(new Event('result'), {
+					resultIndex: 0,
+					results: [Object.assign([{ transcript: 'world', confidence: 0.9 }], { isFinal: true })],
+				})
+				fireToHandlers('result', trailing as Event)
+				fireToHandlers('end', new Event('end'))
+			})
+
+			vocal.stop()
+
+			expect(onResult).toHaveBeenCalledTimes(1)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello world', ['hello world'])
+		})
+
 		it('emits a synthetic result event with the joined final transcripts', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const { vocal, instance } = setup({ continuous: true })
