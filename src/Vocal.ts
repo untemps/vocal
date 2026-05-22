@@ -107,6 +107,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	let lastStartedAt = 0
 	let restartTimeoutId: ReturnType<typeof setTimeout> | null = null
 	let isRestarting = false
+	let emittingAggregated = false
 	let finalTranscripts: string[] = []
 
 	const resolvedOptions: Required<VocalOptions> = {
@@ -161,7 +162,12 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		})
 
 		// Snapshot listeners to stay safe if a handler removes itself during dispatch.
-		;[...listeners[eventTypes.RESULT]].forEach(({ handler }) => handler(event))
+		emittingAggregated = true
+		try {
+			;[...listeners[eventTypes.RESULT]].forEach(({ handler }) => handler(event))
+		} finally {
+			emittingAggregated = false
+		}
 	}
 
 	const onEnd = (event: Event): void => {
@@ -173,6 +179,8 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 			event.stopImmediatePropagation()
 			return
 		}
+		// Flush here (not in stop()) so trailing finals emitted between instance.stop() and 'end' are included.
+		emitAggregatedResult()
 		isRecording = false
 	}
 
@@ -195,6 +203,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	}
 
 	const onResult = (event: Event): void => {
+		if (!resolvedOptions.continuous) return
 		const speechEvent = event as SpeechRecognitionEvent
 		const result = speechEvent.results?.[speechEvent.resultIndex]
 		if (!result?.isFinal) return
@@ -232,7 +241,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!instance) return
 		explicitStop = true
 		clearRestartTimeout()
-		emitAggregatedResult()
 		instance.stop()
 		isRecording = false
 	}
@@ -241,9 +249,10 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!instance) return
 		explicitStop = true
 		clearRestartTimeout()
+		// Clear before instance.abort() so the resulting 'end' → onEnd → emitAggregatedResult is a no-op.
+		finalTranscripts = []
 		instance.abort()
 		isRecording = false
-		finalTranscripts = []
 	}
 
 	const on = (eventType: string, callback: EventHandler): void => {
@@ -265,7 +274,11 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 				callback(event)
 				return
 			}
-			const alternatives = Array.from(speechEvent.results[speechEvent.resultIndex])
+			const result = speechEvent.results[speechEvent.resultIndex]
+			if (resolvedOptions.continuous && !emittingAggregated && result.isFinal) {
+				return
+			}
+			const alternatives = Array.from(result)
 			callback(
 				event,
 				pickBestAlternative(alternatives).transcript,
