@@ -1,3 +1,10 @@
+# [2.0.0-beta.30](https://github.com/untemps/vocal/compare/v2.0.0-beta.29...v2.0.0-beta.30) (2026-05-22)
+
+
+### Bug Fixes
+
+* Expose item() on synthetic aggregated result event ([#122](https://github.com/untemps/vocal/issues/122)) ([3957538](https://github.com/untemps/vocal/commit/39575385bbdddb6ba67dbd75cfe0d5595ac747b0))
+
 # [2.0.0-beta.29](https://github.com/untemps/vocal/compare/v2.0.0-beta.28...v2.0.0-beta.29) (2026-05-22)
 
 
