@@ -165,7 +165,7 @@ Throws if `eventType` is not a valid `EventType`.
 
 Stops recognition, removes all registered listeners, and releases the internal `SpeechRecognition` instance. The returned `VocalInstance` cannot be reused after `cleanup()`.
 
-## Migration from the class-based API
+## Migration from the class-based API (v1.x)
 
 ```js
 // Before
