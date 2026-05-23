@@ -167,8 +167,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	let lastStartedAt = 0
 	let restartTimeoutId: ReturnType<typeof setTimeout> | null = null
 	let isRestarting = false
-	let emittingAggregated = false
-	let finalTranscripts: string[] = []
+	let finalResults: SpeechRecognitionResult[] = []
 
 	const resolvedOptions: Required<VocalOptions> = {
 		...defaultOptions,
@@ -209,25 +208,28 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	}
 
 	const emitAggregatedResult = (): void => {
-		const transcripts = finalTranscripts
-		finalTranscripts = []
-		if (transcripts.length === 0) return
+		const results = finalResults
+		finalResults = []
+		if (results.length === 0) return
 		if (!listeners[eventTypes.RESULT]?.length) return
 
-		const aggregatedTranscripts = transcripts.join(' ').trim()
-		const result = makeSyntheticResult([{ transcript: aggregatedTranscripts, confidence: 1 }])
+		const joinedTranscript = results
+			.map((result) => pickBestAlternative(Array.from(result)).transcript)
+			.join(' ')
+			.trim()
 		const event = Object.assign(new Event(eventTypes.RESULT), {
 			resultIndex: 0,
-			results: makeSyntheticResults([result]),
+			results: makeSyntheticResults(results),
 		})
 
-		// Snapshot listeners to stay safe if a handler removes itself during dispatch.
-		emittingAggregated = true
-		try {
-			;[...listeners[eventTypes.RESULT]].forEach(({ handler }) => handler(event))
-		} finally {
-			emittingAggregated = false
-		}
+		// Bypass the wrapper registered via on() — the synthetic event carries N real
+		// per-utterance results, so the aggregate-level (bestAlternative, alternatives)
+		// pair must be computed from the joined transcript instead of from a single
+		// result's alternatives. Snapshot the listener list to stay safe if a handler
+		// removes itself during dispatch.
+		;[...listeners[eventTypes.RESULT]].forEach(({ callback }) => {
+			callback(event, joinedTranscript, [joinedTranscript])
+		})
 	}
 
 	const onEnd = (event: Event): void => {
@@ -267,7 +269,9 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		const speechEvent = event as SpeechRecognitionEvent
 		const result = speechEvent.results?.[speechEvent.resultIndex]
 		if (!result?.isFinal) return
-		finalTranscripts.push(pickBestAlternative(Array.from(result)).transcript)
+		// Snapshot the result so we own its alternatives and the browser cannot mutate
+		// them between now and the aggregated dispatch on stop().
+		finalResults.push(makeSyntheticResult(Array.from(result)))
 	}
 
 	const internalListeners: Array<[EventType, EventListener]> = [
@@ -289,7 +293,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 				throw new Error('Unable to retrieve the stream from media device')
 			}
 			explicitStop = false
-			finalTranscripts = []
+			finalResults = []
 			instance.start()
 			isRecording = true
 			lastStartedAt = Date.now()
@@ -312,7 +316,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		explicitStop = true
 		clearRestartTimeout()
 		// Clear before instance.abort() so the resulting 'end' → onEnd → emitAggregatedResult is a no-op.
-		finalTranscripts = []
+		finalResults = []
 		instance.abort()
 		isRecording = false
 	}
@@ -337,7 +341,9 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 				return
 			}
 			const result = speechEvent.results[speechEvent.resultIndex]
-			if (resolvedOptions.continuous && !emittingAggregated && result.isFinal) {
+			// Suppress finals in continuous mode — they are accumulated and re-emitted
+			// in aggregated form by emitAggregatedResult (which bypasses this wrapper).
+			if (resolvedOptions.continuous && result.isFinal) {
 				return
 			}
 			const alternatives = Array.from(result)
