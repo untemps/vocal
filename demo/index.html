@@ -133,7 +133,6 @@
 			.grow { flex: 1; }
 
 			/* Controls */
-			.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
 			.btn-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
 
 			button {
@@ -155,7 +154,6 @@
 			.btn-secondary:hover:not(:disabled) { background: var(--border); }
 			.btn-danger { background: transparent; color: var(--danger); border-color: var(--danger); }
 			.btn-danger:hover:not(:disabled) { background: #3a1a1a; }
-			.btn-xs { font-size: 11px; padding: 4px 10px; }
 
 			/* Results */
 			.result-transcript {
@@ -235,6 +233,7 @@
 			@media (min-width: 769px) {
 				details.collapsible { display: contents; }
 				details.collapsible > .collapsible-summary { display: none; }
+				details.collapsible > .card + .card { margin-top: 16px; }
 			}
 
 			@media (max-width: 768px) {
@@ -244,8 +243,6 @@
 
 				button { padding: 10px 16px; min-height: 44px; }
 
-				.btn-group { gap: 10px; }
-				.btn-group button { flex: 1; min-width: 0; }
 				.btn-grid { gap: 10px; }
 
 				#log { height: 240px; }
