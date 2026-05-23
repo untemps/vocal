@@ -14,12 +14,12 @@ const $optMaxAlt     = document.getElementById('opt-maxalt') as HTMLInputElement
 const $optContinuous = document.getElementById('opt-continuous') as HTMLInputElement
 const $optInterim    = document.getElementById('opt-interim') as HTMLInputElement
 
-const $btnStart   = document.getElementById('btn-start') as HTMLButtonElement
-const $btnStop    = document.getElementById('btn-stop') as HTMLButtonElement
-const $btnAbort   = document.getElementById('btn-abort') as HTMLButtonElement
-const $btnCleanup = document.getElementById('btn-cleanup') as HTMLButtonElement
-const $btnReinit  = document.getElementById('btn-reinit') as HTMLButtonElement
-const $btnClearLog = document.getElementById('btn-clear-log') as HTMLButtonElement
+const $btnStart   		= document.getElementById('btn-start') as HTMLButtonElement
+const $btnStop    		= document.getElementById('btn-stop') as HTMLButtonElement
+const $btnAbort   		= document.getElementById('btn-abort') as HTMLButtonElement
+const $btnCleanup 		= document.getElementById('btn-cleanup') as HTMLButtonElement
+const $btnResetOptions  = document.getElementById('btn-reset-options') as HTMLButtonElement
+const $btnClearLog 		= document.getElementById('btn-clear-log') as HTMLButtonElement
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -94,6 +94,13 @@ function setBadge(el: HTMLElement, value: boolean, trueClass?: string) {
 	el.textContent = String(value)
 }
 
+function resetOptions() {
+	$optLang.value = 'fr-FR'
+	$optMaxAlt.value = '3'
+	$optContinuous.checked = false
+	$optInterim.checked = false
+}
+
 function buildOptions() {
 	return {
 		lang: $optLang.value || 'fr-FR',
@@ -131,6 +138,8 @@ function initVocal() {
 	})
 
 	vocal.on('nomatch',     logEvent('nomatch'))
+	vocal.on('start', logEvent('start'))
+	vocal.on('end',   logEvent('end'))
 	vocal.on('speechstart', logEvent('speechstart'))
 	vocal.on('speechend',   logEvent('speechend'))
 
@@ -152,7 +161,7 @@ window.addEventListener('resize', syncCollapsible)
 
 if (!isSupported) {
 	$banner.style.display = 'block'
-	;[$btnStart, $btnStop, $btnAbort, $btnCleanup, $btnReinit].forEach(
+	;[$btnStart, $btnStop, $btnAbort, $btnCleanup, $btnResetOptions].forEach(
 		(b) => (b.disabled = true)
 	)
 } else {
@@ -161,7 +170,13 @@ if (!isSupported) {
 
 // ── Bindings ──────────────────────────────────────────────────────────────────
 
-$btnReinit.addEventListener('click', initVocal)
+$btnResetOptions.addEventListener('click', () => {
+	resetOptions()
+	vocal?.cleanup()
+	vocal = null
+	log('Reset Options')
+	initVocal()	
+})
 
 ;[$optLang, $optMaxAlt, $optContinuous, $optInterim].forEach((el) =>
 	el.addEventListener('change', initVocal)

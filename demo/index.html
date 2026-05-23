@@ -126,26 +126,15 @@
 				width: 100%;
 			}
 
-			.checkbox-row {
-				display: flex;
-				align-items: center;
-				gap: 8px;
-				margin-bottom: 10px;
-				font-size: 12px;
-				color: var(--text);
-				cursor: pointer;
+			label:has(input[type="checkbox"]) {
+				margin-top: 20px;
 			}
-
-			.checkbox-row input { width: 14px; height: 14px; cursor: pointer; }
-
-			.checkbox-group { display: flex; gap: 16px; }
-			.checkbox-group .checkbox-row { margin-bottom: 0; }
 
 			.grow { flex: 1; }
 
 			/* Controls */
 			.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
-			.btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+			.btn-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
 
 			button {
 				font-family: var(--font);
@@ -337,11 +326,11 @@
 						</div>
 					</div>
 
-					<!-- Config -->
+					<!-- Options -->
 					<div class="card">
 						<div class="card-header">
 							<div class="card-title">Options</div>
-							<button class="btn-secondary btn-xs" id="btn-reinit">Reset</button>
+							<button class="btn-secondary" id="btn-reset-options">Reset</button>
 						</div>
 						<label>
 							lang
@@ -351,16 +340,14 @@
 							maxAlternatives
 							<input type="number" id="opt-maxalt" value="3" min="1" max="10" />
 						</label>
-						<div class="checkbox-group">
-							<label class="checkbox-row">
-								<input type="checkbox" id="opt-continuous" />
-								continuous
-							</label>
-							<label class="checkbox-row">
-								<input type="checkbox" id="opt-interim" />
-								interimResults
-							</label>
-						</div>
+						<label>
+							continuous
+							<input type="checkbox" id="opt-continuous" />
+						</label>
+						<label>
+							interimResults
+							<input type="checkbox" id="opt-interim" />
+						</label>
 					</div>
 				</details>
 
@@ -390,7 +377,7 @@
 				<div class="card grow">
 					<div class="card-header">
 						<div class="card-title">Logs</div>
-						<button class="btn-secondary btn-xs" id="btn-clear-log">Clear</button>
+						<button class="btn-secondary" id="btn-clear-log">Clear</button>
 					</div>
 					<div id="log"><div class="log-empty">No events yet.</div></div>
 				</div>
