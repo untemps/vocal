@@ -126,26 +126,14 @@
 				width: 100%;
 			}
 
-			.checkbox-row {
-				display: flex;
-				align-items: center;
-				gap: 8px;
-				margin-bottom: 10px;
-				font-size: 12px;
-				color: var(--text);
-				cursor: pointer;
+			label:has(input[type="checkbox"]) {
+				margin-top: 20px;
 			}
-
-			.checkbox-row input { width: 14px; height: 14px; cursor: pointer; }
-
-			.checkbox-group { display: flex; gap: 16px; }
-			.checkbox-group .checkbox-row { margin-bottom: 0; }
 
 			.grow { flex: 1; }
 
 			/* Controls */
-			.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
-			.btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+			.btn-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
 
 			button {
 				font-family: var(--font);
@@ -166,7 +154,6 @@
 			.btn-secondary:hover:not(:disabled) { background: var(--border); }
 			.btn-danger { background: transparent; color: var(--danger); border-color: var(--danger); }
 			.btn-danger:hover:not(:disabled) { background: #3a1a1a; }
-			.btn-xs { font-size: 11px; padding: 4px 10px; }
 
 			/* Results */
 			.result-transcript {
@@ -246,6 +233,7 @@
 			@media (min-width: 769px) {
 				details.collapsible { display: contents; }
 				details.collapsible > .collapsible-summary { display: none; }
+				details.collapsible > .card + .card { margin-top: 16px; }
 			}
 
 			@media (max-width: 768px) {
@@ -255,8 +243,6 @@
 
 				button { padding: 10px 16px; min-height: 44px; }
 
-				.btn-group { gap: 10px; }
-				.btn-group button { flex: 1; min-width: 0; }
 				.btn-grid { gap: 10px; }
 
 				#log { height: 240px; }
@@ -337,11 +323,11 @@
 						</div>
 					</div>
 
-					<!-- Config -->
+					<!-- Options -->
 					<div class="card">
 						<div class="card-header">
 							<div class="card-title">Options</div>
-							<button class="btn-secondary btn-xs" id="btn-reinit">Reset</button>
+							<button class="btn-secondary" id="btn-reset-options">Reset</button>
 						</div>
 						<label>
 							lang
@@ -351,16 +337,14 @@
 							maxAlternatives
 							<input type="number" id="opt-maxalt" value="3" min="1" max="10" />
 						</label>
-						<div class="checkbox-group">
-							<label class="checkbox-row">
-								<input type="checkbox" id="opt-continuous" />
-								continuous
-							</label>
-							<label class="checkbox-row">
-								<input type="checkbox" id="opt-interim" />
-								interimResults
-							</label>
-						</div>
+						<label>
+							continuous
+							<input type="checkbox" id="opt-continuous" />
+						</label>
+						<label>
+							interimResults
+							<input type="checkbox" id="opt-interim" />
+						</label>
 					</div>
 				</details>
 
@@ -390,7 +374,7 @@
 				<div class="card grow">
 					<div class="card-header">
 						<div class="card-title">Logs</div>
-						<button class="btn-secondary btn-xs" id="btn-clear-log">Clear</button>
+						<button class="btn-secondary" id="btn-clear-log">Clear</button>
 					</div>
 					<div id="log"><div class="log-empty">No events yet.</div></div>
 				</div>
