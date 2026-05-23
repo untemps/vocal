@@ -827,7 +827,7 @@ describe('Vocal', () => {
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello world', ['hello world'])
 		})
 
-		it('exposes item() on the synthetic aggregated result for lib.dom compatibility', async () => {
+		it('exposes per-utterance results on the synthetic aggregated event via item()', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const { vocal, instance } = setup({ continuous: true })
 			await vocal.start()
@@ -842,12 +842,54 @@ describe('Vocal', () => {
 			expect(onResult).toHaveBeenCalledTimes(1)
 			const event = onResult.mock.calls[0][0] as SpeechRecognitionEvent
 			expect(typeof event.results.item).toBe('function')
-			expect(event.results.length).toBe(1)
-			const firstResult = event.results.item(0)
-			expect(firstResult.isFinal).toBe(true)
-			expect(firstResult.length).toBe(1)
-			expect(typeof firstResult.item).toBe('function')
-			expect(firstResult.item(0).transcript).toBe('hello world')
+			expect(event.results.length).toBe(2)
+			expect(event.results.item(0).isFinal).toBe(true)
+			expect(event.results.item(0).item(0).transcript).toBe('hello')
+			expect(event.results.item(1).isFinal).toBe(true)
+			expect(event.results.item(1).item(0).transcript).toBe('world')
+		})
+
+		it('preserves real confidence per utterance in the aggregated event', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+
+			instance.say('hello', [{ transcript: 'hello', confidence: 0.82 }])
+			instance.say('world', [{ transcript: 'world', confidence: 0.91 }])
+			vocal.stop()
+
+			const event = onResult.mock.calls[0][0] as SpeechRecognitionEvent
+			expect(event.results[0][0].confidence).toBe(0.82)
+			expect(event.results[1][0].confidence).toBe(0.91)
+		})
+
+		it('preserves all alternatives per utterance in the aggregated event', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true, maxAlternatives: 3 })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+
+			instance.say('hello', [
+				{ transcript: 'hello', confidence: 0.9 },
+				{ transcript: 'helo', confidence: 0.6 },
+				{ transcript: 'hell', confidence: 0.4 },
+			])
+			instance.say('world', [
+				{ transcript: 'world', confidence: 0.8 },
+				{ transcript: 'whirl', confidence: 0.5 },
+			])
+			vocal.stop()
+
+			const event = onResult.mock.calls[0][0] as SpeechRecognitionEvent
+			expect(event.results[0].length).toBe(3)
+			expect(Array.from(event.results[0]).map((a) => a.transcript)).toEqual(['hello', 'helo', 'hell'])
+			expect(event.results[1].length).toBe(2)
+			expect(Array.from(event.results[1]).map((a) => a.transcript)).toEqual(['world', 'whirl'])
 		})
 
 		it('emits a synthetic result event with the joined final transcripts', async () => {
