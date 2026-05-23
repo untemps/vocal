@@ -1,3 +1,15 @@
+# [2.0.0-beta.31](https://github.com/untemps/vocal/compare/v2.0.0-beta.30...v2.0.0-beta.31) (2026-05-23)
+
+
+### Features
+
+* Preserve real confidence and alternatives in aggregated result event ([#125](https://github.com/untemps/vocal/issues/125)) ([170f4ef](https://github.com/untemps/vocal/commit/170f4ef5b6b9a7db03b9266815a9cce5d0b10551))
+
+
+### BREAKING CHANGES
+
+* event.results no longer contains a single fake result. It now contains N entries (1 per captured final utterance), each with its real alternatives and confidences. Consumers that read `event.results[0][0].transcript` to obtain the joined transcript now get only the first utterance's best transcript. Migration: read `bestAlternative` (the 2nd argument of the listener) for the joined transcript — its value is unchanged. To enumerate per-utterance detail, iterate `event.results`.
+
 # [2.0.0-beta.30](https://github.com/untemps/vocal/compare/v2.0.0-beta.29...v2.0.0-beta.30) (2026-05-22)
 
 
