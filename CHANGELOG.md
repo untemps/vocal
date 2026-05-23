@@ -1,3 +1,95 @@
+# [2.0.0](https://github.com/untemps/vocal/compare/v1.3.5...v2.0.0) (2026-05-23)
+
+
+* refactor!: Select best RESULT transcript by confidence ([#44](https://github.com/untemps/vocal/issues/44)) ([2318302](https://github.com/untemps/vocal/commit/2318302c322ec73aea61b1a1328cfa95e1a48d91))
+
+
+### Bug Fixes
+
+* Expose item() on synthetic aggregated result event ([#122](https://github.com/untemps/vocal/issues/122)) ([9de2c7f](https://github.com/untemps/vocal/commit/9de2c7ffe1e0c028a9bda73289d0eaa14646178b))
+* Re-check instance after getUserMediaStream awaits in start() ([#121](https://github.com/untemps/vocal/issues/121)) ([20b8edd](https://github.com/untemps/vocal/commit/20b8eddfb2bd2f80bec7d3ae4abc26d45d54eac5))
+* Remove internal end listener on cleanup ([#68](https://github.com/untemps/vocal/issues/68)) ([457d312](https://github.com/untemps/vocal/commit/457d31235ca126654c2eb9219780a34a863452f6))
+* Return false from isSupported in non-browser environments ([#65](https://github.com/untemps/vocal/issues/65)) ([0e81ec9](https://github.com/untemps/vocal/commit/0e81ec9f73def707bcffc6bbdeec65cf22f7528d))
+* Suppress intermediate result events in continuous mode ([#90](https://github.com/untemps/vocal/issues/90)) ([df29a48](https://github.com/untemps/vocal/commit/df29a4808013c7952eac97ec19fc7e76b6ee91f9))
+* Throw on invalid event type in addEventListener and removeEventListener ([#69](https://github.com/untemps/vocal/issues/69)) ([abdca5e](https://github.com/untemps/vocal/commit/abdca5e71696cd8717587454284ec9a64fa7cc0c))
+* Use resultIndex to select current result in continuous mode ([#64](https://github.com/untemps/vocal/issues/64)) ([946ad72](https://github.com/untemps/vocal/commit/946ad72261df5b247d0504c85a55aa95c5a7bc18))
+
+
+### chore
+
+* Add type module and rename CJS dist to index.cjs ([#45](https://github.com/untemps/vocal/issues/45)) ([54901f9](https://github.com/untemps/vocal/commit/54901f97e7924336e10b6b934003b1c152eabc0e))
+* Remove UMD bundle from distribution ([#78](https://github.com/untemps/vocal/issues/78)) ([c7f5c60](https://github.com/untemps/vocal/commit/c7f5c6065e2b0ab47a65d9c0524875bc72088fdc))
+
+
+### Code Refactoring
+
+* Move from class-based to functional API ([#88](https://github.com/untemps/vocal/issues/88)) ([1ec1f41](https://github.com/untemps/vocal/commit/1ec1f41f285060b2a45dd62d4351dbefc4466dd2))
+* Remove deprecated serviceURI option ([#33](https://github.com/untemps/vocal/issues/33)) ([3ef86f5](https://github.com/untemps/vocal/commit/3ef86f5ffd07fb5cec60034a2abb0e56321f2a68))
+* Remove once() method ([#87](https://github.com/untemps/vocal/issues/87)) ([d79eb74](https://github.com/untemps/vocal/commit/d79eb74b43bb5ebfc0bdbf9e71413165009a7847))
+
+
+### Features
+
+* Add isRecording getter to track recognition state ([#41](https://github.com/untemps/vocal/issues/41)) ([fa22546](https://github.com/untemps/vocal/commit/fa225465453256922c1da3bb3355ed2b51a7247d))
+* Add once() method for one-shot event listener registration ([#76](https://github.com/untemps/vocal/issues/76)) ([54b4868](https://github.com/untemps/vocal/commit/54b48680aca1eed2a3397ca8013960cb576332e4))
+* Auto-restart recognition on silence in continuous mode ([#84](https://github.com/untemps/vocal/issues/84)) ([280e4da](https://github.com/untemps/vocal/commit/280e4da411c6eb72723da05896f3c27cdf3fb5f8))
+* Expose AbortSignal support in start() ([#42](https://github.com/untemps/vocal/issues/42)) ([f709801](https://github.com/untemps/vocal/commit/f7098013a1c6c4e59e7adcb46ee44437233d1e27))
+* Preserve real confidence and alternatives in aggregated result event ([#125](https://github.com/untemps/vocal/issues/125)) ([ddf5f65](https://github.com/untemps/vocal/commit/ddf5f651e872156f19491ff61b582e83c004bfd3))
+* Remove instance getter to prevent implementation leakage ([#77](https://github.com/untemps/vocal/issues/77)) ([94c8579](https://github.com/untemps/vocal/commit/94c8579127bbf7a8bd2ce5d1aa550495be317e9d))
+* start() rejects on error instead of always resolving ([#43](https://github.com/untemps/vocal/issues/43)) ([fb80f3e](https://github.com/untemps/vocal/commit/fb80f3e0a595301ab819bc13307a5be9021660b4))
+* Support multiple listeners per event type in addEventListener ([#75](https://github.com/untemps/vocal/issues/75)) ([8157811](https://github.com/untemps/vocal/commit/8157811fdb11179835c3158ed11db44b6d2b4147))
+
+
+### BREAKING CHANGES
+
+* event.results no longer contains a single fake result. It now contains N entries (1 per captured final utterance), each with its real alternatives and confidences. Consumers that read `event.results[0][0].transcript` to obtain the joined transcript now get only the first utterance's best transcript. Migration: read `bestAlternative` (the 2nd argument of the listener) for the joined transcript — its value is unchanged. To enumerate per-utterance detail, iterate `event.results`.
+* every public entry point changes shape:
+- `new Vocal(options)` → `createVocal(options)`
+- `Vocal.isSupported` (static getter) → `isSupported()` (function)
+- `Vocal.eventTypes` (static) → `eventTypes` (named export)
+- `vocal.addEventListener(type, cb)` → `vocal.on(type, cb)`
+- `vocal.removeEventListener(type, cb?)` → `vocal.off(type, cb?)`
+- Side-effect methods (`stop`, `abort`, `on`, `off`, `cleanup`) now
+  return `void` instead of `this` — chaining is no longer supported.
+- The `Vocal` class is no longer exported; the new `VocalInstance`
+  interface describes the object returned by `createVocal()`.
+Migration:
+  // before
+  import { Vocal } from '@untemps/vocal'
+  if (!Vocal.isSupported) throw new Error()
+  const vocal = new Vocal({ lang: 'fr-FR' })
+  vocal.addEventListener('result', cb)
+  // after
+  import { createVocal, isSupported } from '@untemps/vocal'
+  if (!isSupported()) throw new Error()
+  const vocal = createVocal({ lang: 'fr-FR' })
+  vocal.on('result', cb)
+* vocal.once(eventType, callback) is removed. Consumers relying on it must replace the call with a manual addEventListener + removeEventListener pair:
+   const handler = (event, best) => {
+      vocal.removeEventListener('result', handler)
+      // ...
+   }
+   vocal.addEventListener('result', handler)
+* continuous mode now keeps the session alive across silence and aggregates results — semantics that callers using `continuous: true` must adapt to:
+- Recording no longer ends after ~7s of silence; call `stop()` or `abort()` explicitly to terminate the session.
+- A synthetic `result` event is emitted just before `end` on `stop()`, carrying the joined final transcripts. `event instanceof SpeechRecognitionEvent` returns `false` for this event — read the transcript through the listener's second argument (`(event, bestAlternative, alternatives) => ...`).
+- Intermediate `end` and `start` events fired by the browser during silent restart cycles are no longer forwarded to user listeners. `isRecording` stays `true` across the cycle.
+- `abort()` discards the aggregated buffer without emitting.
+`continuous: false` consumers see no behavioural change.
+* dist/index.umd.js is no longer published. Consumers loading via <script> tags or AMD loaders should use dist/index.es.js with a module-aware loader instead.
+* vocal.instance is removed. Consumers who accessed the raw SpeechRecognition object must migrate to Vocal API methods.
+* addEventListener now stacks listeners instead of replacing. removeEventListener(eventType) removes all handlers for the type
+removeEventListener(eventType, callback) removes only the specific callback.
+* "main" field: dist/index.js → dist/index.cjs. Consumers using the main field directly (not via the exports map) must update their import path.
+Consumers using the exports map (require/import conditions) are not affected.
+* The RESULT callback signature changes from (event, transcript: string, alternatives: string[]) to (event, bestAlternative: string, alternatives: string[]) where bestAlternative is the alternative with the highest confidence score instead of the first in the array.
+Migration: no change needed if confidence ordering matches array order (standard browser behavior); replace transcript with bestAlternative if using the parameter name.
+* start(): no longer resolves when the microphone stream fails. Callers who did not handle rejections will receive an UnhandledPromiseRejection.
+Migration: wrap await vocal.start() in try/catch, or use .catch().
+* VocalOptions.serviceURI removed. Passing it to Vocal() is now a TS error.
+Runtime behavior unchanged — browsers already ignored this option.
+Migration: remove serviceURI from options passed to new Vocal().
+
 ## [1.3.5](https://github.com/untemps/vocal/compare/v1.3.4...v1.3.5) (2026-05-17)
 
 ## [1.3.4](https://github.com/untemps/vocal/compare/v1.3.3...v1.3.4) (2026-05-15)
