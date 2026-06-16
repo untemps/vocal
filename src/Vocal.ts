@@ -1,8 +1,4 @@
-import {
-	isNavigatorPermissionsSupported,
-	isNavigatorMediaDevicesSupported,
-	getUserMediaStream,
-} from '@untemps/user-permissions-utils'
+import { isMediaDevicesSupported, getUserMediaStream } from '@untemps/user-permissions-utils'
 
 // Web Speech API types missing from lib.dom in current TypeScript releases.
 // SpeechRecognitionEvent / SpeechRecognitionErrorEvent / SpeechRecognitionResult /
@@ -151,8 +147,11 @@ const includesEventType = (eventType: string): boolean => Object.values(eventTyp
 const unknownEventTypeMessage = (eventType: string): string =>
 	`Unknown event type "${eventType}". Valid types are: ${Object.values(eventTypes).join(', ')}.`
 
-export const isSupported = (): boolean =>
-	!!resolveSpeechRecognition() && !!isNavigatorPermissionsSupported() && !!isNavigatorMediaDevicesSupported()
+// Permissions API is intentionally not required: getUserMediaStream drives the prompt through
+// navigator.mediaDevices, and the Permissions API is best-effort in v2. Requiring it would wrongly
+// report unsupported on browsers where SpeechRecognition + getUserMedia work but
+// navigator.permissions is absent (e.g. older Safari).
+export const isSupported = (): boolean => !!resolveSpeechRecognition() && isMediaDevicesSupported()
 
 export const createVocal = (options?: VocalOptions): VocalInstance => {
 	const SpeechRecognition = resolveSpeechRecognition()
@@ -285,19 +284,20 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
 		if (!instance) return
 		try {
-			const stream = (await getUserMediaStream('microphone', { audio: true }, { signal })) as MediaStream | null
+			// v2 resolves with a MediaStream or rejects with a typed DOMException (NotAllowedError,
+			// NotFoundError, AbortError, …) — it never resolves null, so no falsy-stream guard is needed.
+			await getUserMediaStream('microphone', { audio: true }, { signal })
 			if (signal?.aborted) return
 			// Re-check after the await: cleanup() may have nulled instance while we awaited.
 			if (!instance) return
-			if (!stream) {
-				throw new Error('Unable to retrieve the stream from media device')
-			}
 			explicitStop = false
 			finalResults = []
 			instance.start()
 			isRecording = true
 			lastStartedAt = Date.now()
 		} catch (error) {
+			// AbortError (cancellation) is swallowed; every other DOMException (NotAllowedError →
+			// permission denied, NotFoundError → no device, …) propagates with its real name.
 			if (error instanceof Error && error.name === 'AbortError') return
 			throw error
 		}

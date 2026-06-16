@@ -31,21 +31,15 @@ const setup = (options?: Parameters<typeof createVocal>[0]): { vocal: VocalInsta
 }
 
 const mockStream = 'stream' as unknown as MediaStream
-const mockNull = null as unknown as MediaStream
 
 describe('Vocal', () => {
 	describe('isSupported', () => {
-		it('returns true when SpeechRecognition, permissions and mediaDevices are all supported', () => {
+		it('returns true when SpeechRecognition and mediaDevices are both supported', () => {
 			expect(isSupported()).toBe(true)
 		})
 
-		it('returns false when navigator.permissions is not supported', () => {
-			vi.spyOn(userPermissionsUtils, 'isNavigatorPermissionsSupported').mockReturnValueOnce(false)
-			expect(isSupported()).toBe(false)
-		})
-
-		it('returns false when navigator.mediaDevices is not supported', () => {
-			vi.spyOn(userPermissionsUtils, 'isNavigatorMediaDevicesSupported').mockReturnValueOnce(false)
+		it('returns false when mediaDevices is not supported', () => {
+			vi.spyOn(userPermissionsUtils, 'isMediaDevicesSupported').mockReturnValueOnce(false)
 			expect(isSupported()).toBe(false)
 		})
 
@@ -182,10 +176,14 @@ describe('Vocal', () => {
 			expect(instance.start).toHaveBeenCalled()
 		})
 
-		it('rejects when getUserMediaStream returns null', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockNull)
+		it.each([
+			['NotAllowedError', 'permission denied'],
+			['NotFoundError', 'no device'],
+		])('rejects with the original %s DOMException from getUserMediaStream', async (name, message) => {
+			const error = new DOMException(message, name)
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockRejectedValueOnce(error)
 			const { vocal } = setup()
-			await expect(vocal.start()).rejects.toThrow('Unable to retrieve the stream from media device')
+			await expect(vocal.start()).rejects.toBe(error)
 			expect(vocal.isRecording).toBe(false)
 		})
 
