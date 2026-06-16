@@ -5,6 +5,7 @@ export type {
 	EventType,
 	ResultEventHandler,
 	ErrorEventHandler,
+	PermissionEventHandler,
 	GenericEventHandler,
 	EventHandlerFor,
 } from './Vocal'
