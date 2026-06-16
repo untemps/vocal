@@ -4,6 +4,7 @@ import { createVocal, isSupported as isVocalSupported, type VocalInstance } from
 
 const $supported    = document.getElementById('status-supported')!
 const $recording    = document.getElementById('status-recording')!
+const $permission   = document.getElementById('status-permission')!
 const $transcript   = document.getElementById('result-transcript')!
 const $alternatives = document.getElementById('result-alternatives')!
 const $log          = document.getElementById('log')!
@@ -94,6 +95,12 @@ function setBadge(el: HTMLElement, value: boolean, trueClass?: string) {
 	el.textContent = String(value)
 }
 
+function setPermission(state: string) {
+	const cls = state === 'granted' ? 'yes' : state === 'denied' ? 'no' : 'warn'
+	$permission.className = `badge ${cls}`
+	$permission.textContent = state
+}
+
 function resetOptions() {
 	$optLang.value = 'fr-FR'
 	$optMaxAlt.value = '3'
@@ -125,6 +132,8 @@ function initVocal() {
 	const options = buildOptions()
 	vocal = createVocal(options)
 
+	setPermission('unknown')
+
 	vocal.on('result', (_, best, alts) => {
 		$transcript.textContent = best
 		setAlternatives(alts)
@@ -134,6 +143,12 @@ function initVocal() {
 
 	vocal.on('error', (event) => {
 		log('error', event.error ?? String(event))
+		updateStatus()
+	})
+
+	vocal.on('permission', (_event, state) => {
+		setPermission(state)
+		log('permission', state)
 		updateStatus()
 	})
 

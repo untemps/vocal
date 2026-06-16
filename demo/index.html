@@ -97,6 +97,7 @@
 
 			.badge.yes { background: #1a3a2a; color: var(--success); }
 			.badge.no  { background: #3a1a1a; color: var(--danger); }
+			.badge.warn { background: #3a2e1a; color: var(--warn); }
 			.badge.recording { background: #2a1a3a; color: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
 
 			@keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:.5; } }
@@ -320,6 +321,10 @@
 						<div class="status-row">
 							<span>isRecording</span>
 							<span id="status-recording" class="badge no">false</span>
+						</div>
+						<div class="status-row">
+							<span>permission</span>
+							<span id="status-permission" class="badge warn">unknown</span>
 						</div>
 					</div>
 
