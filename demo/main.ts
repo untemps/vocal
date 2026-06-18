@@ -1,5 +1,4 @@
 import { createVocal, isSupported as isVocalSupported, type VocalInstance } from '../src/index'
-import { watchPermission } from '@untemps/user-permissions-utils'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
@@ -102,10 +101,6 @@ function setPermission(state: string) {
 	$permission.textContent = state
 }
 
-function seedPermissionBadge() {
-	watchPermission('microphone', (state) => setPermission(state)).catch(() => {})
-}
-
 function resetOptions() {
 	$optLang.value = 'fr-FR'
 	$optMaxAlt.value = '3'
@@ -183,8 +178,9 @@ if (!isSupported) {
 		(b) => (b.disabled = true)
 	)
 } else {
+	// The 'permission' badge is seeded by vocal.on('permission', …) in initVocal():
+	// attaching the handler starts the watch and emits the current state immediately.
 	initVocal()
-	seedPermissionBadge()
 }
 
 // ── Bindings ──────────────────────────────────────────────────────────────────
