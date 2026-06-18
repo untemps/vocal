@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/untemps/vocal/compare/v2.0.1...v2.1.0) (2026-06-18)
+
+
+### Features
+
+* Migrate to @untemps/user-permissions-utils v2 ([#131](https://github.com/untemps/vocal/issues/131)) ([fa03b03](https://github.com/untemps/vocal/commit/fa03b036e97601086df00dbf506a41a3a2973f20))
+
 ## [2.0.1](https://github.com/untemps/vocal/compare/v2.0.0...v2.0.1) (2026-05-23)
 
 # [2.0.0](https://github.com/untemps/vocal/compare/v1.3.5...v2.0.0) (2026-05-23)
