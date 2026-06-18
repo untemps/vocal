@@ -67,8 +67,6 @@ export const eventTypes = {
 	SPEECH_END: 'speechend',
 	SPEECH_START: 'speechstart',
 	START: 'start',
-	// Library-synthetic event (not a native SpeechRecognition event): emitted with the current
-	// microphone permission state ('granted' | 'denied' | 'prompt') on start() and on every transition.
 	PERMISSION: 'permission',
 } as const
 
@@ -158,10 +156,6 @@ const includesEventType = (eventType: string): boolean => Object.values(eventTyp
 const unknownEventTypeMessage = (eventType: string): string =>
 	`Unknown event type "${eventType}". Valid types are: ${Object.values(eventTypes).join(', ')}.`
 
-// Permissions API is intentionally not required: getUserMediaStream drives the prompt through
-// navigator.mediaDevices, and the Permissions API is best-effort in v2. Requiring it would wrongly
-// report unsupported on browsers where SpeechRecognition + getUserMedia work but
-// navigator.permissions is absent (e.g. older Safari).
 export const isSupported = (): boolean => !!resolveSpeechRecognition() && isMediaDevicesSupported()
 
 export const createVocal = (options?: VocalOptions): VocalInstance => {
@@ -178,8 +172,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	let restartTimeoutId: ReturnType<typeof setTimeout> | null = null
 	let isRestarting = false
 	let finalResults: SpeechRecognitionResult[] = []
-	// Owns the lifetime of the microphone permission watch started in start(). Aborting it removes the
-	// underlying `change` listener; stop()/abort()/cleanup() abort it so no subscription leaks.
 	let permissionWatchController: AbortController | null = null
 
 	const resolvedOptions: Required<VocalOptions> = {
@@ -245,9 +237,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		})
 	}
 
-	// The native instance never emits a 'permission' event, so it is dispatched synthetically here.
-	// Bypass the on() wrapper (like emitAggregatedResult) and pass the state as a second argument
-	// alongside a synthetic Event carrying it on `event.state`.
 	const emitPermission = (state: PermissionState): void => {
 		const handlers = listeners[eventTypes.PERMISSION]
 		if (!handlers?.length) return
@@ -310,20 +299,12 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	]
 	internalListeners.forEach(([type, handler]) => instance!.addEventListener(type, handler))
 
-	// Pre-flight and session observer fused into a single watchPermission call: it emits the current
-	// state immediately (emitImmediately defaults to true), then re-emits on every transition. The
-	// subscription is torn down through permissionWatchController on stop()/abort()/cleanup(), and
-	// through the consumer signal when one is provided.
 	const observePermission = (signal?: AbortSignal): void => {
 		teardownPermissionWatch()
-		// Optional synchronous gate: skip the call on browsers without the Permissions API to avoid a
-		// guaranteed NotSupportedError rejection. The .catch below still covers non-queryable names
-		// (microphone throws a raw TypeError on Firefox/Safari even when navigator.permissions exists).
 		if (!isPermissionsSupported()) return
 		const controller = new AbortController()
 		permissionWatchController = controller
 		const watchSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal
-		// Best-effort: getUserMediaStream stays the path that actually surfaces the prompt.
 		watchPermission('microphone', (state) => emitPermission(state), { signal: watchSignal }).catch(() => {})
 	}
 
@@ -331,8 +312,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!instance) return
 		observePermission(signal)
 		try {
-			// v2 resolves with a MediaStream or rejects with a typed DOMException (NotAllowedError,
-			// NotFoundError, AbortError, …) — it never resolves null, so no falsy-stream guard is needed.
 			await getUserMediaStream('microphone', { audio: true }, { signal })
 			if (signal?.aborted) return
 			// Re-check after the await: cleanup() may have nulled instance while we awaited.
@@ -343,8 +322,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 			isRecording = true
 			lastStartedAt = Date.now()
 		} catch (error) {
-			// AbortError (cancellation) is swallowed; every other DOMException (NotAllowedError →
-			// permission denied, NotFoundError → no device, …) propagates with its real name.
 			if (error instanceof Error && error.name === 'AbortError') return
 			throw error
 		}

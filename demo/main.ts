@@ -102,15 +102,8 @@ function setPermission(state: string) {
 	$permission.textContent = state
 }
 
-// Demo-only: reflect the current microphone permission on load (and keep it live) through the same
-// user-permissions-utils primitive vocal relies on internally — never touching `navigator` directly.
-// watchPermission emits the current state immediately, then on every transition, for the page's
-// lifetime. Vocal's own `permission` event still feeds the log during a session. Best-effort: it stays
-// silent when the Permissions API is unavailable or `microphone` isn't queryable (Safari/Firefox).
 function seedPermissionBadge() {
-	watchPermission('microphone', (state) => setPermission(state)).catch(() => {
-		/* leave the badge at its default "unknown" */
-	})
+	watchPermission('microphone', (state) => setPermission(state)).catch(() => {})
 }
 
 function resetOptions() {

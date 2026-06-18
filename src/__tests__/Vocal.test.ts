@@ -310,7 +310,6 @@ describe('Vocal', () => {
 
 		it('passes microphone and an abort signal to watchPermission', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			// Emit with no listener registered to exercise the no-op dispatch path.
 			const spy = grantOnWatch('granted')
 			const { vocal } = setup()
 			await vocal.start()
