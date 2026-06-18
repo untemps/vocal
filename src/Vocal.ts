@@ -333,6 +333,9 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 			isRecording = true
 			lastStartedAt = Date.now()
 		} catch (error) {
+			// Recognition never started, so don't leave the watch subscribed (the "no leak"
+			// contract only promises teardown on stop/abort/cleanup, none of which run here).
+			teardownPermissionWatch()
 			if (error instanceof Error && error.name === 'AbortError') return
 			throw error
 		}

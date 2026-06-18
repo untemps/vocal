@@ -338,6 +338,19 @@ describe('Vocal', () => {
 			expect(streamSpy).toHaveBeenCalled()
 		})
 
+		it('tears down the watch when start() rejects', async () => {
+			let capturedSignal: AbortSignal | undefined
+			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, _onChange, options) => {
+				capturedSignal = options?.signal
+				return Promise.resolve()
+			})
+			const error = new DOMException('permission denied', 'NotAllowedError')
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockRejectedValueOnce(error)
+			const { vocal } = setup()
+			await expect(vocal.start()).rejects.toBe(error)
+			expect(capturedSignal?.aborted).toBe(true)
+		})
+
 		it.each([
 			['stop', (v: VocalInstance) => v.stop()],
 			['abort', (v: VocalInstance) => v.abort()],
