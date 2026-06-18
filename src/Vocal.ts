@@ -304,9 +304,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!isPermissionsSupported()) return
 		const controller = new AbortController()
 		permissionWatchController = controller
-		// Tear the watch down on the consumer signal too. AbortSignal.any is the clean fusion, but
-		// some engines expose the Permissions API without it (e.g. Safari 16.0–17.3); fall back to
-		// forwarding the abort so building the watch signal can never throw out of start().
 		let watchSignal: AbortSignal = controller.signal
 		if (signal) {
 			try {
@@ -336,8 +333,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 			isRecording = true
 			lastStartedAt = Date.now()
 		} catch (error) {
-			// Recognition never started, so don't leave the watch subscribed (the "no leak"
-			// contract only promises teardown on stop/abort/cleanup, none of which run here).
 			teardownPermissionWatch()
 			if (error instanceof Error && error.name === 'AbortError') return
 			throw error
