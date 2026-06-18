@@ -356,6 +356,40 @@ describe('Vocal', () => {
 			expect(capturedSignal?.aborted).toBe(true)
 		})
 
+		it('does not break start() and still tears down when AbortSignal.any is unavailable', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			let capturedSignal: AbortSignal | undefined
+			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, _onChange, options) => {
+				capturedSignal = options?.signal
+				return Promise.resolve()
+			})
+			vi.spyOn(AbortSignal, 'any').mockImplementation(() => {
+				throw new TypeError('AbortSignal.any is not a function')
+			})
+			const controller = new AbortController()
+			const { vocal, instance } = setup()
+			await expect(vocal.start({ signal: controller.signal })).resolves.toBeUndefined()
+			expect(instance.start).toHaveBeenCalled()
+			expect(capturedSignal?.aborted).toBe(false)
+			controller.abort()
+			expect(capturedSignal?.aborted).toBe(true)
+		})
+
+		it('forwards an already-aborted consumer signal when AbortSignal.any is unavailable', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			let capturedSignal: AbortSignal | undefined
+			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, _onChange, options) => {
+				capturedSignal = options?.signal
+				return Promise.resolve()
+			})
+			vi.spyOn(AbortSignal, 'any').mockImplementation(() => {
+				throw new TypeError('AbortSignal.any is not a function')
+			})
+			const { vocal } = setup()
+			await vocal.start({ signal: AbortSignal.abort() })
+			expect(capturedSignal?.aborted).toBe(true)
+		})
+
 		it('tears down the watch when the consumer signal aborts', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			let capturedSignal: AbortSignal | undefined

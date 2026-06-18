@@ -304,7 +304,18 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!isPermissionsSupported()) return
 		const controller = new AbortController()
 		permissionWatchController = controller
-		const watchSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal
+		// Tear the watch down on the consumer signal too. AbortSignal.any is the clean fusion, but
+		// some engines expose the Permissions API without it (e.g. Safari 16.0–17.3); fall back to
+		// forwarding the abort so building the watch signal can never throw out of start().
+		let watchSignal: AbortSignal = controller.signal
+		if (signal) {
+			try {
+				watchSignal = AbortSignal.any([signal, controller.signal])
+			} catch {
+				if (signal.aborted) controller.abort()
+				else signal.addEventListener('abort', () => controller.abort(), { once: true })
+			}
+		}
 		watchPermission('microphone', (state) => emitPermission(state), { signal: watchSignal }).catch(() => {})
 	}
 
