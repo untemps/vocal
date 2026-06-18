@@ -316,7 +316,10 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 				else signal.addEventListener('abort', () => controller.abort(), { once: true })
 			}
 		}
-		watchPermission('microphone', (state) => emitPermission(state), { signal: watchSignal }).catch(() => {})
+		watchPermission('microphone', (state) => emitPermission(state), {
+			signal: watchSignal,
+			emitImmediately: true,
+		}).catch(() => {})
 	}
 
 	const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {

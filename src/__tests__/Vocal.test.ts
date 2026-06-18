@@ -315,6 +315,7 @@ describe('Vocal', () => {
 			await vocal.start()
 			expect(spy).toHaveBeenCalledWith('microphone', expect.any(Function), {
 				signal: expect.any(AbortSignal),
+				emitImmediately: true,
 			})
 		})
 
