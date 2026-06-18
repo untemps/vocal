@@ -78,7 +78,7 @@ export type ResultEventHandler = (
 	alternatives: string[]
 ) => void
 export type ErrorEventHandler = (event: SpeechRecognitionErrorEvent) => void
-export type PermissionEventHandler = (event: Event, state: PermissionState) => void
+export type PermissionEventHandler = (event: Event & { state: PermissionState }, state: PermissionState) => void
 export type GenericEventHandler = (event: Event) => void
 
 export type EventHandlerFor<T extends EventType> = T extends 'result'
