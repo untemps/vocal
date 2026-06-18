@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/untemps/vocal/compare/v2.1.0...v2.2.0) (2026-06-18)
+
+
+### Features
+
+* Expose microphone permission state outside a start() session ([#133](https://github.com/untemps/vocal/issues/133)) ([dfc1f2e](https://github.com/untemps/vocal/commit/dfc1f2e1e0eddf719fbb0f22f05ecb27eb06a7b3))
+
 # [2.1.0](https://github.com/untemps/vocal/compare/v2.0.1...v2.1.0) (2026-06-18)
 
 
