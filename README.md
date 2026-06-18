@@ -43,7 +43,7 @@ pnpm add @untemps/vocal
 ```javascript
 import { createVocal, isSupported } from '@untemps/vocal'
 
-// Check whether SpeechRecognition, Permissions and MediaDevices interfaces are supported
+// Check whether the SpeechRecognition and MediaDevices interfaces are supported
 if (!isSupported()) {
   throw new Error('Vocal is not supported')
 }
@@ -137,6 +137,7 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | speechend   | Fired when speech recognized by the recognition service has stopped being detected        |
 | speechstart | Fired when sound recognized by the recognition service as speech has been detected        |
 | start       | fired when the recognition service has begun listening to incoming audio                  |
+| permission  | **Library-synthetic** (not a native `SpeechRecognition` event). Fired with the current microphone permission state on `start()` and on every transition during the session (see [Microphone permission event](#microphone-permission-event)). |
 
 For convenience, `eventTypes` is exported as a constant map so consumers can reference type strings symbolically:
 
@@ -145,12 +146,25 @@ import { eventTypes } from '@untemps/vocal'
 vocal.on(eventTypes.RESULT, handler)
 ```
 
+### Microphone permission event
+
+Unlike every other event above, `permission` is **synthesised by Vocal** — the native `SpeechRecognition` instance never emits it. On `start()`, Vocal observes the microphone permission through the [Permissions API](https://developer.mozilla.org/en-US/docs/Web/API/Permissions_API) and emits the current state immediately, then re-emits on every transition for the lifetime of the session (e.g. when the user grants or revokes access). The handler receives the state both as a second argument and on `event.state`:
+
+```ts
+vocal.on('permission', (event, state) => {
+  // state: 'granted' | 'denied' | 'prompt' (also available as event.state)
+  console.log('Microphone permission:', state)
+})
+```
+
+The observation is **best-effort**: it never displays a prompt itself (only `start()` does, through `getUserMediaStream`), and it stays silent on browsers where the Permissions API is unavailable or where `microphone` is not queryable (Firefox, Safari). The subscription is torn down automatically when recognition ends, on `stop()`, `abort()`, `cleanup()`, or when the `AbortSignal` passed to `start()` aborts — no listener leaks. (In continuous mode it survives the transparent auto-restarts between utterances.)
+
 ## Top-level exports
 
 | Export        | Kind     | Description                                                                                                          |
 | ------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
 | `createVocal` | function | Factory that returns a `VocalInstance`. See [Methods](#methods).                                                     |
-| `isSupported` | function | Returns `true` if the current environment supports the SpeechRecognition Web API. Call it (it is **not** a getter).  |
+| `isSupported` | function | Returns `true` when both the `SpeechRecognition` Web API and `navigator.mediaDevices.getUserMedia` are available. The Permissions API is **not** required (it is best-effort). Call it (it is **not** a getter). |
 | `eventTypes`  | const    | Map of valid event type strings (e.g. `eventTypes.RESULT === 'result'`).                                             |
 
 ## Instance getter
@@ -163,15 +177,32 @@ vocal.on(eventTypes.RESULT, handler)
 
 ### `start({ signal? })`
 
-Starts recognition. Resolves once the engine is active. Rejects if microphone permission cannot be obtained.
+Starts recognition. Resolves once the engine is active. Acquires the microphone through `getUserMediaStream` and, in parallel, emits the [`permission` event](#microphone-permission-event) with the current state and on every transition.
+
+Rejects if the microphone stream cannot be acquired. The rejection is the **original `DOMException`** thrown by `getUserMedia`, so it can be discriminated by `name`:
+
+| `error.name`      | Meaning                                              |
+| ----------------- | ---------------------------------------------------- |
+| `NotAllowedError` | The user denied microphone permission                |
+| `NotFoundError`   | No matching input device was found                   |
+| _(others)_        | Any other `getUserMedia` `DOMException` is propagated as-is |
+
+Cancelling the in-flight request via the `signal` resolves (it does **not** reject) — the `AbortError` is swallowed.
 
 | Parameter | Type          | Default     | Description                                                                   |
 | --------- | ------------- | ----------- | ----------------------------------------------------------------------------- |
-| signal    | AbortSignal   | `undefined` | Cancels the in-flight microphone permission request when the signal is aborted |
+| signal    | AbortSignal   | `undefined` | Cancels the in-flight microphone request and tears down the permission watch when aborted |
 
 ```js
 const controller = new AbortController()
-vocal.start({ signal: controller.signal })
+
+try {
+  await vocal.start({ signal: controller.signal })
+} catch (error) {
+  if (error.name === 'NotAllowedError') {
+    // microphone permission denied
+  }
+}
 
 // Cancel the permission request at any later point
 controller.abort()
@@ -228,5 +259,14 @@ const vocal = createVocal({ lang: 'fr-FR' })
 vocal.on('result', cb)
 vocal.off('result', cb)
 ```
+
+## Migration to v3 (behaviour changes)
+
+v3 migrates the internal `@untemps/user-permissions-utils` dependency to v2. The public API surface is unchanged, but two observable behaviours differ:
+
+- **`start()` rejection** — on a failed acquisition, `start()` now rejects with the **original `getUserMedia` `DOMException`** (`NotAllowedError`, `NotFoundError`, …) instead of the generic `Error('Unable to retrieve the stream from media device')`. Discriminate on `error.name` (see [`start()`](#start-signal-)). Code that matched the old message string must be updated.
+- **`isSupported()` no longer requires the Permissions API** — it now returns `true` whenever `SpeechRecognition` and `navigator.mediaDevices.getUserMedia` are available. This **widens** support (e.g. older Safari builds without `navigator.permissions` where recognition actually works) and never narrows it.
+
+The new [`permission` event](#microphone-permission-event) is purely additive — existing listeners are unaffected.
 
 Side-effect methods (`stop`, `abort`, `on`, `off`, `cleanup`) now return `void` — method chaining is no longer supported. `Vocal.eventTypes` is now exported as the top-level `eventTypes` const.

@@ -10,6 +10,7 @@ Object.defineProperty(global, 'navigator', {
 interface MockPermissionStatus {
 	state: string
 	addEventListener: Mock
+	removeEventListener: Mock
 }
 
 interface MockPermissions {
@@ -42,6 +43,7 @@ global.PermissionStatus = vi.fn(function (this: MockPermissionStatus) {
 	return {
 		state: 'granted',
 		addEventListener: vi.fn(),
+		removeEventListener: vi.fn(),
 	}
 }) as unknown as new () => MockPermissionStatus
 

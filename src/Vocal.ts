@@ -1,6 +1,7 @@
 import {
-	isNavigatorPermissionsSupported,
-	isNavigatorMediaDevicesSupported,
+	isMediaDevicesSupported,
+	isPermissionsSupported,
+	watchPermission,
 	getUserMediaStream,
 } from '@untemps/user-permissions-utils'
 
@@ -66,6 +67,7 @@ export const eventTypes = {
 	SPEECH_END: 'speechend',
 	SPEECH_START: 'speechstart',
 	START: 'start',
+	PERMISSION: 'permission',
 } as const
 
 export type EventType = (typeof eventTypes)[keyof typeof eventTypes]
@@ -76,13 +78,16 @@ export type ResultEventHandler = (
 	alternatives: string[]
 ) => void
 export type ErrorEventHandler = (event: SpeechRecognitionErrorEvent) => void
+export type PermissionEventHandler = (event: Event & { state: PermissionState }, state: PermissionState) => void
 export type GenericEventHandler = (event: Event) => void
 
 export type EventHandlerFor<T extends EventType> = T extends 'result'
 	? ResultEventHandler
 	: T extends 'error'
 		? ErrorEventHandler
-		: GenericEventHandler
+		: T extends 'permission'
+			? PermissionEventHandler
+			: GenericEventHandler
 
 export interface VocalInstance {
 	readonly isRecording: boolean
@@ -151,8 +156,7 @@ const includesEventType = (eventType: string): boolean => Object.values(eventTyp
 const unknownEventTypeMessage = (eventType: string): string =>
 	`Unknown event type "${eventType}". Valid types are: ${Object.values(eventTypes).join(', ')}.`
 
-export const isSupported = (): boolean =>
-	!!resolveSpeechRecognition() && !!isNavigatorPermissionsSupported() && !!isNavigatorMediaDevicesSupported()
+export const isSupported = (): boolean => !!resolveSpeechRecognition() && isMediaDevicesSupported()
 
 export const createVocal = (options?: VocalOptions): VocalInstance => {
 	const SpeechRecognition = resolveSpeechRecognition()
@@ -168,6 +172,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	let restartTimeoutId: ReturnType<typeof setTimeout> | null = null
 	let isRestarting = false
 	let finalResults: SpeechRecognitionResult[] = []
+	let permissionWatchController: AbortController | null = null
 
 	const resolvedOptions: Required<VocalOptions> = {
 		...defaultOptions,
@@ -232,6 +237,18 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		})
 	}
 
+	const emitPermission = (state: PermissionState): void => {
+		const handlers = listeners[eventTypes.PERMISSION]
+		if (!handlers?.length) return
+		const event = Object.assign(new Event(eventTypes.PERMISSION), { state })
+		;[...handlers].forEach(({ callback }) => callback(event, state))
+	}
+
+	const teardownPermissionWatch = (): void => {
+		permissionWatchController?.abort()
+		permissionWatchController = null
+	}
+
 	const onEnd = (event: Event): void => {
 		if (shouldAutoRestart()) {
 			// Chrome enforces a ~7s silence timeout even with continuous=true; restart transparently.
@@ -243,6 +260,8 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		}
 		// Flush here (not in stop()) so trailing finals emitted between instance.stop() and 'end' are included.
 		emitAggregatedResult()
+		// The session is over (not an auto-restart), so tear down the permission watch too.
+		teardownPermissionWatch()
 		isRecording = false
 	}
 
@@ -282,22 +301,44 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	]
 	internalListeners.forEach(([type, handler]) => instance!.addEventListener(type, handler))
 
+	const observePermission = (signal?: AbortSignal): void => {
+		teardownPermissionWatch()
+		if (!isPermissionsSupported()) return
+		const controller = new AbortController()
+		permissionWatchController = controller
+		let watchSignal: AbortSignal = controller.signal
+		if (signal) {
+			try {
+				watchSignal = AbortSignal.any([signal, controller.signal])
+			} catch {
+				if (signal.aborted) controller.abort()
+				else signal.addEventListener('abort', () => controller.abort(), { once: true })
+			}
+		}
+		watchPermission('microphone', (state) => emitPermission(state), {
+			signal: watchSignal,
+			emitImmediately: true,
+		}).catch(() => {})
+	}
+
 	const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
 		if (!instance) return
+		observePermission(signal)
 		try {
-			const stream = (await getUserMediaStream('microphone', { audio: true }, { signal })) as MediaStream | null
+			const stream = await getUserMediaStream('microphone', { audio: true }, { signal })
+			// The stream is acquired only to drive the permission prompt; SpeechRecognition
+			// captures audio itself, so release these tracks immediately to free the microphone.
+			stream.getTracks().forEach((track) => track.stop())
 			if (signal?.aborted) return
 			// Re-check after the await: cleanup() may have nulled instance while we awaited.
 			if (!instance) return
-			if (!stream) {
-				throw new Error('Unable to retrieve the stream from media device')
-			}
 			explicitStop = false
 			finalResults = []
 			instance.start()
 			isRecording = true
 			lastStartedAt = Date.now()
 		} catch (error) {
+			teardownPermissionWatch()
 			if (error instanceof Error && error.name === 'AbortError') return
 			throw error
 		}
@@ -307,6 +348,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!instance) return
 		explicitStop = true
 		clearRestartTimeout()
+		teardownPermissionWatch()
 		instance.stop()
 		isRecording = false
 	}
@@ -315,6 +357,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!instance) return
 		explicitStop = true
 		clearRestartTimeout()
+		teardownPermissionWatch()
 		// Clear before instance.abort() so the resulting 'end' → onEnd → emitAggregatedResult is a no-op.
 		finalResults = []
 		instance.abort()

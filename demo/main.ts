@@ -1,9 +1,11 @@
 import { createVocal, isSupported as isVocalSupported, type VocalInstance } from '../src/index'
+import { watchPermission } from '@untemps/user-permissions-utils'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
 const $supported    = document.getElementById('status-supported')!
 const $recording    = document.getElementById('status-recording')!
+const $permission   = document.getElementById('status-permission')!
 const $transcript   = document.getElementById('result-transcript')!
 const $alternatives = document.getElementById('result-alternatives')!
 const $log          = document.getElementById('log')!
@@ -94,6 +96,16 @@ function setBadge(el: HTMLElement, value: boolean, trueClass?: string) {
 	el.textContent = String(value)
 }
 
+function setPermission(state: string) {
+	const cls = state === 'granted' ? 'yes' : state === 'denied' ? 'no' : 'warn'
+	$permission.className = `badge ${cls}`
+	$permission.textContent = state
+}
+
+function seedPermissionBadge() {
+	watchPermission('microphone', (state) => setPermission(state)).catch(() => {})
+}
+
 function resetOptions() {
 	$optLang.value = 'fr-FR'
 	$optMaxAlt.value = '3'
@@ -137,6 +149,12 @@ function initVocal() {
 		updateStatus()
 	})
 
+	vocal.on('permission', (_event, state) => {
+		setPermission(state)
+		log('permission', state)
+		updateStatus()
+	})
+
 	vocal.on('nomatch',     logEvent('nomatch'))
 	vocal.on('start', logEvent('start'))
 	vocal.on('end',   logEvent('end'))
@@ -166,6 +184,7 @@ if (!isSupported) {
 	)
 } else {
 	initVocal()
+	seedPermissionBadge()
 }
 
 // ── Bindings ──────────────────────────────────────────────────────────────────
