@@ -173,6 +173,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	let isRestarting = false
 	let finalResults: SpeechRecognitionResult[] = []
 	let permissionWatchController: AbortController | null = null
+	let lastPermissionState: PermissionState | null = null
 
 	const resolvedOptions: Required<VocalOptions> = {
 		...defaultOptions,
@@ -237,16 +238,22 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		})
 	}
 
+	const emitPermissionTo = (callback: EventHandler, state: PermissionState): void => {
+		const event = Object.assign(new Event(eventTypes.PERMISSION), { state })
+		callback(event, state)
+	}
+
 	const emitPermission = (state: PermissionState): void => {
+		lastPermissionState = state
 		const handlers = listeners[eventTypes.PERMISSION]
 		if (!handlers?.length) return
-		const event = Object.assign(new Event(eventTypes.PERMISSION), { state })
-		;[...handlers].forEach(({ callback }) => callback(event, state))
+		;[...handlers].forEach(({ callback }) => emitPermissionTo(callback, state))
 	}
 
 	const teardownPermissionWatch = (): void => {
 		permissionWatchController?.abort()
 		permissionWatchController = null
+		lastPermissionState = null
 	}
 
 	const onEnd = (event: Event): void => {
@@ -260,8 +267,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		}
 		// Flush here (not in stop()) so trailing finals emitted between instance.stop() and 'end' are included.
 		emitAggregatedResult()
-		// The session is over (not an auto-restart), so tear down the permission watch too.
-		teardownPermissionWatch()
 		isRecording = false
 	}
 
@@ -301,29 +306,22 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	]
 	internalListeners.forEach(([type, handler]) => instance!.addEventListener(type, handler))
 
-	const observePermission = (signal?: AbortSignal): void => {
-		teardownPermissionWatch()
+	// Idempotent: the watch lives for as long as there is at least one 'permission'
+	// listener, independent of the session. emitImmediately seeds every currently
+	// attached handler with the initial state.
+	const ensurePermissionWatch = (): void => {
+		if (permissionWatchController) return
 		if (!isPermissionsSupported()) return
 		const controller = new AbortController()
 		permissionWatchController = controller
-		let watchSignal: AbortSignal = controller.signal
-		if (signal) {
-			try {
-				watchSignal = AbortSignal.any([signal, controller.signal])
-			} catch {
-				if (signal.aborted) controller.abort()
-				else signal.addEventListener('abort', () => controller.abort(), { once: true })
-			}
-		}
 		watchPermission('microphone', (state) => emitPermission(state), {
-			signal: watchSignal,
+			signal: controller.signal,
 			emitImmediately: true,
 		}).catch(() => {})
 	}
 
 	const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
 		if (!instance) return
-		observePermission(signal)
 		try {
 			const stream = await getUserMediaStream('microphone', { audio: true }, { signal })
 			// The stream is acquired only to drive the permission prompt; SpeechRecognition
@@ -338,7 +336,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 			isRecording = true
 			lastStartedAt = Date.now()
 		} catch (error) {
-			teardownPermissionWatch()
 			if (error instanceof Error && error.name === 'AbortError') return
 			throw error
 		}
@@ -348,7 +345,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!instance) return
 		explicitStop = true
 		clearRestartTimeout()
-		teardownPermissionWatch()
 		instance.stop()
 		isRecording = false
 	}
@@ -357,7 +353,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!instance) return
 		explicitStop = true
 		clearRestartTimeout()
-		teardownPermissionWatch()
 		// Clear before instance.abort() so the resulting 'end' → onEnd → emitAggregatedResult is a no-op.
 		finalResults = []
 		instance.abort()
@@ -400,6 +395,17 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 
 		if (!listeners[eventType]) listeners[eventType] = []
 		listeners[eventType].push({ callback, handler })
+
+		if (eventType === eventTypes.PERMISSION) {
+			// Start observing as soon as the first handler attaches (even before start()).
+			// If the watch is already running, the new handler missed the immediate emit,
+			// so replay the cached state to it; otherwise emitImmediately seeds it.
+			if (permissionWatchController && lastPermissionState !== null) {
+				emitPermissionTo(callback, lastPermissionState)
+			} else {
+				ensurePermissionWatch()
+			}
+		}
 	}
 
 	const off = (eventType: string, callback?: EventHandler): void => {
@@ -422,6 +428,11 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 				instance!.removeEventListener(eventType, handler as EventListener)
 			)
 			delete listeners[eventType]
+		}
+
+		// Tear the watch down once the last 'permission' handler is gone — no listener leak.
+		if (eventType === eventTypes.PERMISSION && !listeners[eventTypes.PERMISSION]?.length) {
+			teardownPermissionWatch()
 		}
 	}
 
