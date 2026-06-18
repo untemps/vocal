@@ -30,7 +30,10 @@ const setup = (options?: Parameters<typeof createVocal>[0]): { vocal: VocalInsta
 	return { vocal, instance: lastInstance() }
 }
 
-const mockStream = 'stream' as unknown as MediaStream
+const mockTrackStop = vi.fn()
+const mockStream = {
+	getTracks: () => [{ stop: mockTrackStop } as unknown as MediaStreamTrack],
+} as unknown as MediaStream
 
 describe('Vocal', () => {
 	describe('isSupported', () => {
@@ -174,6 +177,14 @@ describe('Vocal', () => {
 			const { vocal, instance } = setup()
 			await vocal.start()
 			expect(instance.start).toHaveBeenCalled()
+		})
+
+		it('releases the acquired stream tracks once the prompt has been driven', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			mockTrackStop.mockClear()
+			const { vocal } = setup()
+			await vocal.start()
+			expect(mockTrackStop).toHaveBeenCalledTimes(1)
 		})
 
 		it.each([
@@ -416,6 +427,22 @@ describe('Vocal', () => {
 			await vocal.start({ signal: controller.signal })
 			expect(capturedSignal?.aborted).toBe(false)
 			controller.abort()
+			expect(capturedSignal?.aborted).toBe(true)
+		})
+
+		it('tears down the watch when the session ends naturally', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			let capturedSignal: AbortSignal | undefined
+			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, _onChange, options) => {
+				capturedSignal = options?.signal
+				return Promise.resolve()
+			})
+			const { vocal, instance } = setup()
+			await vocal.start()
+			expect(capturedSignal?.aborted).toBe(false)
+			;(instance.addEventListener.mock.calls as unknown as [string, EventListener][])
+				.filter(([type]) => type === 'end')
+				.forEach(([, handler]) => handler(new Event('end')))
 			expect(capturedSignal?.aborted).toBe(true)
 		})
 	})

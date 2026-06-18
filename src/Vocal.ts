@@ -260,6 +260,8 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		}
 		// Flush here (not in stop()) so trailing finals emitted between instance.stop() and 'end' are included.
 		emitAggregatedResult()
+		// The session is over (not an auto-restart), so tear down the permission watch too.
+		teardownPermissionWatch()
 		isRecording = false
 	}
 
@@ -323,7 +325,10 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		if (!instance) return
 		observePermission(signal)
 		try {
-			await getUserMediaStream('microphone', { audio: true }, { signal })
+			const stream = await getUserMediaStream('microphone', { audio: true }, { signal })
+			// The stream is acquired only to drive the permission prompt; SpeechRecognition
+			// captures audio itself, so release these tracks immediately to free the microphone.
+			stream.getTracks().forEach((track) => track.stop())
 			if (signal?.aborted) return
 			// Re-check after the await: cleanup() may have nulled instance while we awaited.
 			if (!instance) return

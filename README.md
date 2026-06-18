@@ -157,7 +157,7 @@ vocal.on('permission', (event, state) => {
 })
 ```
 
-The observation is **best-effort**: it never displays a prompt itself (only `start()` does, through `getUserMediaStream`), and it stays silent on browsers where the Permissions API is unavailable or where `microphone` is not queryable (Firefox, Safari). The subscription is torn down automatically on `stop()`, `abort()`, `cleanup()`, or when the `AbortSignal` passed to `start()` aborts — no listener leaks.
+The observation is **best-effort**: it never displays a prompt itself (only `start()` does, through `getUserMediaStream`), and it stays silent on browsers where the Permissions API is unavailable or where `microphone` is not queryable (Firefox, Safari). The subscription is torn down automatically when recognition ends, on `stop()`, `abort()`, `cleanup()`, or when the `AbortSignal` passed to `start()` aborts — no listener leaks. (In continuous mode it survives the transparent auto-restarts between utterances.)
 
 ## Top-level exports
 
