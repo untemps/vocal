@@ -306,9 +306,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 	]
 	internalListeners.forEach(([type, handler]) => instance!.addEventListener(type, handler))
 
-	// Idempotent: the watch lives for as long as there is at least one 'permission'
-	// listener, independent of the session. emitImmediately seeds every currently
-	// attached handler with the initial state.
 	const ensurePermissionWatch = (): void => {
 		if (permissionWatchController) return
 		if (!isPermissionsSupported()) return
@@ -397,9 +394,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		listeners[eventType].push({ callback, handler })
 
 		if (eventType === eventTypes.PERMISSION) {
-			// Start observing as soon as the first handler attaches (even before start()).
-			// If the watch is already running, the new handler missed the immediate emit,
-			// so replay the cached state to it; otherwise emitImmediately seeds it.
 			if (permissionWatchController && lastPermissionState !== null) {
 				emitPermissionTo(callback, lastPermissionState)
 			} else {
@@ -430,7 +424,6 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 			delete listeners[eventType]
 		}
 
-		// Tear the watch down once the last 'permission' handler is gone — no listener leak.
 		if (eventType === eventTypes.PERMISSION && !listeners[eventTypes.PERMISSION]?.length) {
 			teardownPermissionWatch()
 		}

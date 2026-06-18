@@ -380,7 +380,6 @@ describe('Vocal', () => {
 			const handler = vi.fn()
 			const { vocal } = setup()
 			vocal.on(eventTypes.PERMISSION, handler)
-			// No watch was opened, so removing the handler must tear down cleanly (no controller).
 			expect(() => vocal.off(eventTypes.PERMISSION, handler)).not.toThrow()
 			expect(spy).not.toHaveBeenCalled()
 		})

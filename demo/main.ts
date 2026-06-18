@@ -178,8 +178,6 @@ if (!isSupported) {
 		(b) => (b.disabled = true)
 	)
 } else {
-	// The 'permission' badge is seeded by vocal.on('permission', …) in initVocal():
-	// attaching the handler starts the watch and emits the current state immediately.
 	initVocal()
 }
 
