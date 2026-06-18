@@ -275,33 +275,64 @@ describe('Vocal', () => {
 				return Promise.resolve()
 			})
 
+		const captureWatchSignal = () => {
+			const ref: { signal?: AbortSignal } = {}
+			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, _onChange, options) => {
+				ref.signal = options?.signal
+				return Promise.resolve()
+			})
+			return ref
+		}
+
 		it('is accepted as a valid event type', () => {
 			const { vocal } = setup()
 			expect(() => vocal.on(eventTypes.PERMISSION, vi.fn())).not.toThrow()
 		})
 
-		it('emits the current microphone permission state on start', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+		it('emits the current microphone permission state as soon as a handler subscribes', () => {
 			grantOnWatch('granted')
 			const onPermission = vi.fn()
 			const { vocal } = setup()
 			vocal.on(eventTypes.PERMISSION, onPermission)
-			await vocal.start()
 			expect(onPermission).toHaveBeenCalledWith(expect.any(Event), 'granted')
 		})
 
-		it('carries the state on the synthetic event', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+		it('observes before any start() call', () => {
+			const spy = grantOnWatch('prompt')
+			const { vocal } = setup()
+			vocal.on(eventTypes.PERMISSION, vi.fn())
+			expect(spy).toHaveBeenCalledWith('microphone', expect.any(Function), {
+				signal: expect.any(AbortSignal),
+				emitImmediately: true,
+			})
+		})
+
+		it('carries the state on the synthetic event', () => {
 			grantOnWatch('granted')
 			const onPermission = vi.fn()
 			const { vocal } = setup()
 			vocal.on(eventTypes.PERMISSION, onPermission)
-			await vocal.start()
 			const event = onPermission.mock.calls[0][0] as Event & { state: PermissionState }
 			expect(event.state).toBe('granted')
 		})
 
-		it('re-emits on permission transition during the session', async () => {
+		it('re-emits on permission transition', () => {
+			let emit!: (state: PermissionState) => void
+			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, onChange) => {
+				emit = onChange
+				onChange('prompt')
+				return Promise.resolve()
+			})
+			const onPermission = vi.fn()
+			const { vocal } = setup()
+			vocal.on(eventTypes.PERMISSION, onPermission)
+			emit('denied')
+			expect(onPermission).toHaveBeenCalledTimes(2)
+			expect(onPermission).toHaveBeenNthCalledWith(1, expect.any(Event), 'prompt')
+			expect(onPermission).toHaveBeenNthCalledWith(2, expect.any(Event), 'denied')
+		})
+
+		it('continues to emit transitions during an active session', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			let emit!: (state: PermissionState) => void
 			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, onChange) => {
@@ -313,137 +344,145 @@ describe('Vocal', () => {
 			const { vocal } = setup()
 			vocal.on(eventTypes.PERMISSION, onPermission)
 			await vocal.start()
-			emit('denied')
-			expect(onPermission).toHaveBeenCalledTimes(2)
-			expect(onPermission).toHaveBeenNthCalledWith(1, expect.any(Event), 'prompt')
-			expect(onPermission).toHaveBeenNthCalledWith(2, expect.any(Event), 'denied')
+			expect(vocal.isRecording).toBe(true)
+			emit('granted')
+			expect(onPermission).toHaveBeenLastCalledWith(expect.any(Event), 'granted')
 		})
 
-		it('passes microphone and an abort signal to watchPermission', async () => {
+		it('does not open a watch when no permission handler is attached', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			const spy = grantOnWatch('granted')
-			const { vocal } = setup()
-			await vocal.start()
-			expect(spy).toHaveBeenCalledWith('microphone', expect.any(Function), {
-				signal: expect.any(AbortSignal),
-				emitImmediately: true,
-			})
-		})
-
-		it('does not call watchPermission when the Permissions API is unsupported', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			vi.spyOn(userPermissionsUtils, 'isPermissionsSupported').mockReturnValue(false)
 			const spy = vi.spyOn(userPermissionsUtils, 'watchPermission')
 			const { vocal } = setup()
 			await vocal.start()
 			expect(spy).not.toHaveBeenCalled()
 		})
 
-		it('is best-effort: a rejected watchPermission does not prevent start', async () => {
+		it('opens a single watch even with multiple permission handlers', () => {
+			const spy = grantOnWatch('granted')
+			const { vocal } = setup()
+			vocal.on(eventTypes.PERMISSION, vi.fn())
+			vocal.on(eventTypes.PERMISSION, vi.fn())
+			expect(spy).toHaveBeenCalledTimes(1)
+		})
+
+		it('replays the cached state to a handler attached after the watch started', () => {
+			grantOnWatch('granted')
+			const late = vi.fn()
+			const { vocal } = setup()
+			vocal.on(eventTypes.PERMISSION, vi.fn())
+			vocal.on(eventTypes.PERMISSION, late)
+			expect(late).toHaveBeenCalledWith(expect.any(Event), 'granted')
+		})
+
+		it('does not call watchPermission when the Permissions API is unsupported', () => {
+			vi.spyOn(userPermissionsUtils, 'isPermissionsSupported').mockReturnValue(false)
+			const spy = vi.spyOn(userPermissionsUtils, 'watchPermission')
+			const handler = vi.fn()
+			const { vocal } = setup()
+			vocal.on(eventTypes.PERMISSION, handler)
+			expect(() => vocal.off(eventTypes.PERMISSION, handler)).not.toThrow()
+			expect(spy).not.toHaveBeenCalled()
+		})
+
+		it('ignores watch callbacks once every handler has been removed', () => {
+			let emit!: (state: PermissionState) => void
+			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, onChange) => {
+				emit = onChange
+				return Promise.resolve()
+			})
+			const handler = vi.fn()
+			const { vocal } = setup()
+			vocal.on(eventTypes.PERMISSION, handler)
+			vocal.off(eventTypes.PERMISSION, handler)
+			handler.mockClear()
+			expect(() => emit('granted')).not.toThrow()
+			expect(handler).not.toHaveBeenCalled()
+		})
+
+		it('is best-effort: a rejected watchPermission breaks neither subscribe nor start', async () => {
 			const streamSpy = vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			vi.spyOn(userPermissionsUtils, 'watchPermission').mockRejectedValue(
 				new DOMException('not supported', 'NotSupportedError')
 			)
 			const { vocal, instance } = setup()
+			expect(() => vocal.on(eventTypes.PERMISSION, vi.fn())).not.toThrow()
 			await expect(vocal.start()).resolves.toBeUndefined()
 			expect(instance.start).toHaveBeenCalled()
 			expect(streamSpy).toHaveBeenCalled()
 		})
 
-		it('tears down the watch when start() rejects', async () => {
-			let capturedSignal: AbortSignal | undefined
-			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, _onChange, options) => {
-				capturedSignal = options?.signal
-				return Promise.resolve()
-			})
-			const error = new DOMException('permission denied', 'NotAllowedError')
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockRejectedValueOnce(error)
+		it('tears down the watch when the last permission handler is removed', () => {
+			const watch = captureWatchSignal()
+			const handler = vi.fn()
 			const { vocal } = setup()
-			await expect(vocal.start()).rejects.toBe(error)
-			expect(capturedSignal?.aborted).toBe(true)
+			vocal.on(eventTypes.PERMISSION, handler)
+			expect(watch.signal?.aborted).toBe(false)
+			vocal.off(eventTypes.PERMISSION, handler)
+			expect(watch.signal?.aborted).toBe(true)
+		})
+
+		it('keeps the watch alive while at least one permission handler remains', () => {
+			const watch = captureWatchSignal()
+			const first = vi.fn()
+			const second = vi.fn()
+			const { vocal } = setup()
+			vocal.on(eventTypes.PERMISSION, first)
+			vocal.on(eventTypes.PERMISSION, second)
+			vocal.off(eventTypes.PERMISSION, first)
+			expect(watch.signal?.aborted).toBe(false)
+			vocal.off(eventTypes.PERMISSION, second)
+			expect(watch.signal?.aborted).toBe(true)
+		})
+
+		it('tears down the watch when all permission handlers are removed at once', () => {
+			const watch = captureWatchSignal()
+			const { vocal } = setup()
+			vocal.on(eventTypes.PERMISSION, vi.fn())
+			vocal.on(eventTypes.PERMISSION, vi.fn())
+			vocal.off(eventTypes.PERMISSION)
+			expect(watch.signal?.aborted).toBe(true)
+		})
+
+		it('tears down the watch on cleanup', () => {
+			const watch = captureWatchSignal()
+			const { vocal } = setup()
+			vocal.on(eventTypes.PERMISSION, vi.fn())
+			expect(watch.signal?.aborted).toBe(false)
+			vocal.cleanup()
+			expect(watch.signal?.aborted).toBe(true)
 		})
 
 		it.each([
 			['stop', (v: VocalInstance) => v.stop()],
 			['abort', (v: VocalInstance) => v.abort()],
-			['cleanup', (v: VocalInstance) => v.cleanup()],
-		] as const)('tears down the watch subscription on %s', async (_, action) => {
+		] as const)('keeps observing permission after %s (outside-session lifetime)', async (_, action) => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			let capturedSignal: AbortSignal | undefined
-			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, _onChange, options) => {
-				capturedSignal = options?.signal
-				return Promise.resolve()
-			})
+			const watch = captureWatchSignal()
 			const { vocal } = setup()
+			vocal.on(eventTypes.PERMISSION, vi.fn())
 			await vocal.start()
-			expect(capturedSignal?.aborted).toBe(false)
 			action(vocal)
-			expect(capturedSignal?.aborted).toBe(true)
+			expect(watch.signal?.aborted).toBe(false)
 		})
 
-		it('does not break start() and still tears down when AbortSignal.any is unavailable', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			let capturedSignal: AbortSignal | undefined
-			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, _onChange, options) => {
-				capturedSignal = options?.signal
-				return Promise.resolve()
-			})
-			vi.spyOn(AbortSignal, 'any').mockImplementation(() => {
-				throw new TypeError('AbortSignal.any is not a function')
-			})
-			const controller = new AbortController()
-			const { vocal, instance } = setup()
-			await expect(vocal.start({ signal: controller.signal })).resolves.toBeUndefined()
-			expect(instance.start).toHaveBeenCalled()
-			expect(capturedSignal?.aborted).toBe(false)
-			controller.abort()
-			expect(capturedSignal?.aborted).toBe(true)
-		})
-
-		it('forwards an already-aborted consumer signal when AbortSignal.any is unavailable', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			let capturedSignal: AbortSignal | undefined
-			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, _onChange, options) => {
-				capturedSignal = options?.signal
-				return Promise.resolve()
-			})
-			vi.spyOn(AbortSignal, 'any').mockImplementation(() => {
-				throw new TypeError('AbortSignal.any is not a function')
-			})
+		it('does not tear down the watch when start() rejects', async () => {
+			const watch = captureWatchSignal()
+			const error = new DOMException('permission denied', 'NotAllowedError')
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockRejectedValueOnce(error)
 			const { vocal } = setup()
-			await vocal.start({ signal: AbortSignal.abort() })
-			expect(capturedSignal?.aborted).toBe(true)
+			vocal.on(eventTypes.PERMISSION, vi.fn())
+			await expect(vocal.start()).rejects.toBe(error)
+			expect(watch.signal?.aborted).toBe(false)
 		})
 
-		it('tears down the watch when the consumer signal aborts', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			let capturedSignal: AbortSignal | undefined
-			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, _onChange, options) => {
-				capturedSignal = options?.signal
-				return Promise.resolve()
-			})
-			const controller = new AbortController()
+		it('re-opens the watch after a teardown and a fresh subscription', () => {
+			const spy = grantOnWatch('granted')
+			const handler = vi.fn()
 			const { vocal } = setup()
-			await vocal.start({ signal: controller.signal })
-			expect(capturedSignal?.aborted).toBe(false)
-			controller.abort()
-			expect(capturedSignal?.aborted).toBe(true)
-		})
-
-		it('tears down the watch when the session ends naturally', async () => {
-			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
-			let capturedSignal: AbortSignal | undefined
-			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, _onChange, options) => {
-				capturedSignal = options?.signal
-				return Promise.resolve()
-			})
-			const { vocal, instance } = setup()
-			await vocal.start()
-			expect(capturedSignal?.aborted).toBe(false)
-			;(instance.addEventListener.mock.calls as unknown as [string, EventListener][])
-				.filter(([type]) => type === 'end')
-				.forEach(([, handler]) => handler(new Event('end')))
-			expect(capturedSignal?.aborted).toBe(true)
+			vocal.on(eventTypes.PERMISSION, handler)
+			vocal.off(eventTypes.PERMISSION, handler)
+			vocal.on(eventTypes.PERMISSION, handler)
+			expect(spy).toHaveBeenCalledTimes(2)
 		})
 	})
 

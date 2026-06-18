@@ -1,5 +1,4 @@
 import { createVocal, isSupported as isVocalSupported, type VocalInstance } from '../src/index'
-import { watchPermission } from '@untemps/user-permissions-utils'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
@@ -102,10 +101,6 @@ function setPermission(state: string) {
 	$permission.textContent = state
 }
 
-function seedPermissionBadge() {
-	watchPermission('microphone', (state) => setPermission(state)).catch(() => {})
-}
-
 function resetOptions() {
 	$optLang.value = 'fr-FR'
 	$optMaxAlt.value = '3'
@@ -184,7 +179,6 @@ if (!isSupported) {
 	)
 } else {
 	initVocal()
-	seedPermissionBadge()
 }
 
 // ── Bindings ──────────────────────────────────────────────────────────────────

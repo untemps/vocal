@@ -137,7 +137,7 @@ Please refer to [this section](https://developer.mozilla.org/en-US/docs/Web/API/
 | speechend   | Fired when speech recognized by the recognition service has stopped being detected        |
 | speechstart | Fired when sound recognized by the recognition service as speech has been detected        |
 | start       | fired when the recognition service has begun listening to incoming audio                  |
-| permission  | **Library-synthetic** (not a native `SpeechRecognition` event). Fired with the current microphone permission state on `start()` and on every transition during the session (see [Microphone permission event](#microphone-permission-event)). |
+| permission  | **Library-synthetic** (not a native `SpeechRecognition` event). Fired with the current microphone permission state as soon as a `permission` handler is attached — even before `start()` — and on every transition while at least one handler stays subscribed (see [Microphone permission event](#microphone-permission-event)). |
 
 For convenience, `eventTypes` is exported as a constant map so consumers can reference type strings symbolically:
 
@@ -148,7 +148,7 @@ vocal.on(eventTypes.RESULT, handler)
 
 ### Microphone permission event
 
-Unlike every other event above, `permission` is **synthesised by Vocal** — the native `SpeechRecognition` instance never emits it. On `start()`, Vocal observes the microphone permission through the [Permissions API](https://developer.mozilla.org/en-US/docs/Web/API/Permissions_API) and emits the current state immediately, then re-emits on every transition for the lifetime of the session (e.g. when the user grants or revokes access). The handler receives the state both as a second argument and on `event.state`:
+Unlike every other event above, `permission` is **synthesised by Vocal** — the native `SpeechRecognition` instance never emits it. Vocal observes the microphone permission through the [Permissions API](https://developer.mozilla.org/en-US/docs/Web/API/Permissions_API), so you can read and track it **independently of a session**. The handler receives the state both as a second argument and on `event.state`:
 
 ```ts
 vocal.on('permission', (event, state) => {
@@ -157,7 +157,9 @@ vocal.on('permission', (event, state) => {
 })
 ```
 
-The observation is **best-effort**: it never displays a prompt itself (only `start()` does, through `getUserMediaStream`), and it stays silent on browsers where the Permissions API is unavailable or where `microphone` is not queryable (Firefox, Safari). The subscription is torn down automatically when recognition ends, on `stop()`, `abort()`, `cleanup()`, or when the `AbortSignal` passed to `start()` aborts — no listener leaks. (In continuous mode it survives the transparent auto-restarts between utterances.)
+**Subscription-driven lifecycle.** Observation begins the moment the first `permission` handler is attached — even before `start()`, e.g. to seed a "mic status" badge on page load — and the handler is emitted the current state immediately. The state is then re-emitted on every transition (e.g. when the user grants or revokes access), including across a `start()`/`stop()` cycle and the transparent auto-restarts of continuous mode. The single underlying watch is torn down automatically once the **last** `permission` handler is removed via `off('permission')` or on `cleanup()` — no listener leaks. A handler attached while the watch is already running is immediately replayed the last known state, so every subscriber sees a value without waiting for the next transition.
+
+The observation is **best-effort**: it never displays a prompt itself (only `start()` does, through `getUserMediaStream`), and it stays silent on browsers where the Permissions API is unavailable or where `microphone` is not queryable (Firefox, Safari). When there is no `permission` handler, no watch is opened at all.
 
 ## Top-level exports
 
@@ -177,7 +179,7 @@ The observation is **best-effort**: it never displays a prompt itself (only `sta
 
 ### `start({ signal? })`
 
-Starts recognition. Resolves once the engine is active. Acquires the microphone through `getUserMediaStream` and, in parallel, emits the [`permission` event](#microphone-permission-event) with the current state and on every transition.
+Starts recognition. Resolves once the engine is active. Acquires the microphone through `getUserMediaStream` (which surfaces the OS permission prompt). If a [`permission` handler](#microphone-permission-event) is subscribed, the resulting grant/deny shows up as a `permission` transition — but the watch is driven by subscription, not by `start()`.
 
 Rejects if the microphone stream cannot be acquired. The rejection is the **original `DOMException`** thrown by `getUserMedia`, so it can be discriminated by `name`:
 
@@ -191,7 +193,7 @@ Cancelling the in-flight request via the `signal` resolves (it does **not** reje
 
 | Parameter | Type          | Default     | Description                                                                   |
 | --------- | ------------- | ----------- | ----------------------------------------------------------------------------- |
-| signal    | AbortSignal   | `undefined` | Cancels the in-flight microphone request and tears down the permission watch when aborted |
+| signal    | AbortSignal   | `undefined` | Cancels the in-flight microphone request when aborted (does not affect the permission watch, which is tied to subscription) |
 
 ```js
 const controller = new AbortController()
@@ -267,6 +269,6 @@ v3 migrates the internal `@untemps/user-permissions-utils` dependency to v2. The
 - **`start()` rejection** — on a failed acquisition, `start()` now rejects with the **original `getUserMedia` `DOMException`** (`NotAllowedError`, `NotFoundError`, …) instead of the generic `Error('Unable to retrieve the stream from media device')`. Discriminate on `error.name` (see [`start()`](#start-signal-)). Code that matched the old message string must be updated.
 - **`isSupported()` no longer requires the Permissions API** — it now returns `true` whenever `SpeechRecognition` and `navigator.mediaDevices.getUserMedia` are available. This **widens** support (e.g. older Safari builds without `navigator.permissions` where recognition actually works) and never narrows it.
 
-The new [`permission` event](#microphone-permission-event) is purely additive — existing listeners are unaffected.
+The new [`permission` event](#microphone-permission-event) is purely additive — existing listeners are unaffected. It is **subscription-driven**: observation starts when the first `permission` handler is attached (even before `start()`) and stops when the last one is removed or on `cleanup()`, so the state is now observable outside a session — it is no longer tied to the `start()`/`stop()` lifecycle.
 
 Side-effect methods (`stop`, `abort`, `on`, `off`, `cleanup`) now return `void` — method chaining is no longer supported. `Vocal.eventTypes` is now exported as the top-level `eventTypes` const.
