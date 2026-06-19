@@ -163,11 +163,14 @@ The observation is **best-effort**: it never displays a prompt itself (only `sta
 
 ## Top-level exports
 
-| Export        | Kind     | Description                                                                                                          |
-| ------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
-| `createVocal` | function | Factory that returns a `VocalInstance`. See [Methods](#methods).                                                     |
-| `isSupported` | function | Returns `true` when both the `SpeechRecognition` Web API and `navigator.mediaDevices.getUserMedia` are available. The Permissions API is **not** required (it is best-effort). Call it (it is **not** a getter). |
-| `eventTypes`  | const    | Map of valid event type strings (e.g. `eventTypes.RESULT === 'result'`).                                             |
+| Export         | Kind     | Description                                                                                                          |
+| -------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `createVocal`  | function | Factory that returns a `VocalInstance`. Accepts an optional `engine` factory (see [Custom speech engines](#custom-speech-engines)). See [Methods](#methods). |
+| `isSupported`  | function | With no argument, returns `true` when both the `SpeechRecognition` Web API and `navigator.mediaDevices.getUserMedia` are available (the Permissions API is **not** required — best-effort). Pass a `SpeechEngineFactory` to probe a [custom engine](#custom-speech-engines) instead. Call it (it is **not** a getter). |
+| `eventTypes`   | const    | Map of valid event type strings (e.g. `eventTypes.RESULT === 'result'`).                                            |
+| `SpeechEngine` | function | The built-in Web Speech engine factory — the default backend used when no `engine` is supplied. See [Custom speech engines](#custom-speech-engines). |
+
+The TypeScript types `SpeechEngineFactory`, `SpeechEngineInstance`, `SpeechEngineContext` and `CreateVocalOptions` are exported for engine authors.
 
 ## Instance getter
 
@@ -243,6 +246,117 @@ Throws if `eventType` is not a valid `EventType`.
 ### `cleanup()`
 
 Stops recognition, removes all registered listeners, and releases the internal `SpeechRecognition` instance. The returned `VocalInstance` cannot be reused after `cleanup()`.
+
+## Custom speech engines
+
+`createVocal()` is backend-agnostic. By default it drives the browser's Web Speech API through the built-in **`SpeechEngine`** factory, but you can pass your own `engine` to target a different backend — an on-device model (Vosk, whisper.cpp, `transformers.js`) or a cloud STT service (Deepgram, Google Cloud Speech-to-Text, Azure, OpenAI). This is the seam consumers such as [`@untemps/react-vocal`](https://github.com/untemps/react-vocal) build on, and it brings speech recognition to browsers where `SpeechRecognition` is missing (e.g. Firefox).
+
+Responsibilities are split cleanly:
+
+- **`createVocal` (core)** owns everything engine-agnostic: the user listener registry, event fan-out, the `isRecording` getter and lifecycle delegation.
+- **The engine** owns the backend: it produces events and pushes them — already shaped to the public handler signatures — back to the core through `context.emit`.
+
+```ts
+import { createVocal, isSupported, type SpeechEngineFactory } from '@untemps/vocal'
+
+const myEngine: SpeechEngineFactory = (context) => {
+  // … wire up your backend and emit events through context.emit …
+}
+myEngine.isSupported = () => true
+
+if (!isSupported(myEngine)) throw new Error('Engine not supported')
+
+const vocal = createVocal({ engine: myEngine, lang: 'fr-FR' })
+```
+
+Omitting `engine` keeps the built-in Web Speech engine, so existing code is unaffected. `isSupported()` with no argument still probes the Web Speech engine; pass a factory to probe a custom one.
+
+### The contract
+
+```ts
+interface SpeechEngineContext {
+  // Resolved options (defaults applied) the engine should honour.
+  readonly options: Required<VocalOptions>
+  // Push an event to every user listener registered for `type`. The payload must already match
+  // the public handler shape — (event, bestAlternative, alternatives) for `result`,
+  // (event, state) for `permission`, (event) for everything else.
+  emit<T extends EventType>(type: T, ...payload: Parameters<EventHandlerFor<T>>): void
+}
+
+interface SpeechEngineInstance {
+  readonly isRecording: boolean
+  start(options?: { signal?: AbortSignal }): Promise<void>
+  stop(): void
+  abort(): void
+  // Called by the core when a user listener is added/removed for `type`. The added callback is
+  // passed so the engine can replay sticky state to it (the built-in engine replays the cached
+  // permission state to late subscribers). Most engines only react to specific types.
+  subscribe<T extends EventType>(type: T, callback: EventHandlerFor<T>): void
+  unsubscribe(type: EventType): void
+  cleanup(): void
+}
+
+// The factory the core calls, plus a static support probe (so support can be checked
+// without instantiating the engine, which may touch unavailable globals).
+interface SpeechEngineFactory {
+  (context: SpeechEngineContext): SpeechEngineInstance
+  isSupported(): boolean
+}
+```
+
+### A minimal engine
+
+A tiny engine with no real backend — it emits a fixed result on `stop()`. It exercises the whole `createVocal` surface and shows the event shapes a real engine must produce:
+
+```ts
+import { createVocal, type SpeechEngineFactory } from '@untemps/vocal'
+
+const echoEngine: SpeechEngineFactory = ({ options, emit }) => {
+  let recording = false
+  return {
+    get isRecording() {
+      return recording
+    },
+    async start() {
+      recording = true
+      emit('start', new Event('start'))
+    },
+    stop() {
+      recording = false
+      // `result` payload mirrors the Web Speech engine: (event, bestAlternative, alternatives).
+      const transcript = `heard in ${options.lang}`
+      emit('result', new Event('result') as SpeechRecognitionEvent, transcript, [transcript])
+      emit('end', new Event('end'))
+    },
+    abort() {
+      recording = false
+      emit('end', new Event('end'))
+    },
+    subscribe() {}, // no sticky state to replay
+    unsubscribe() {},
+    cleanup() {
+      recording = false
+    },
+  }
+}
+echoEngine.isSupported = () => true
+
+const vocal = createVocal({ engine: echoEngine })
+vocal.on('result', (_event, best) => console.log(best))
+await vocal.start()
+vocal.stop() // logs: "heard in en-US"
+```
+
+### What an engine must honour
+
+| Concern | Contract |
+| --- | --- |
+| **Result shape** | Emit `result` as `(event, bestAlternative, alternatives)` — `bestAlternative` is the single best transcript, `alternatives` every transcript. To support lib.dom-style consumers that read `event.results.item(i)`, also shape `event.results` (the built-in engine does — see [Aggregated result on stop](#aggregated-result-on-stop)). |
+| **`continuous` / `interimResults`** | Read them from `context.options` and map interim/final results onto `result` emits. The built-in engine forwards interims, defers intermediate finals, and flushes a single aggregated `result` on `stop()`. A custom engine may keep that behaviour or emit per-utterance — the `(event, best, alternatives)` shape is the only hard requirement. |
+| **Permission** | The built-in engine surfaces microphone permission through the `permission` event (via `@untemps/user-permissions-utils`), opened lazily on the first `permission` subscription — that is what `subscribe`/`unsubscribe` are for. An engine that manages capture itself can ignore them (no-op) and never emit `permission`, or wire its own source. |
+| **`grammars` / `maxAlternatives`** | Engine-specific. Honour what your backend supports and ignore the rest — don't throw on unsupported options. |
+| **`AbortSignal`** | `start({ signal })` should abort any in-flight setup when the signal fires and **resolve** (not reject) on abort, matching the built-in engine. |
+| **Bundle size** | Engines are plain factory functions and fully tree-shakeable. Keep heavy SDKs in your own module so they are never pulled into the default build — `@untemps/vocal` itself only depends on `@untemps/user-permissions-utils`. |
 
 ## Migration from the class-based API (v1.x)
 
