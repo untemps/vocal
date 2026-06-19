@@ -662,11 +662,13 @@ describe('Vocal', () => {
 	})
 
 	describe('off', () => {
-		it('calls removeEventListener on the underlying instance', () => {
+		it('stops forwarding events once all listeners for a type are removed', () => {
+			const onStart = vi.fn()
 			const { vocal, instance } = setup()
-			vocal.on(eventTypes.START, vi.fn())
+			vocal.on(eventTypes.START, onStart)
 			vocal.off(eventTypes.START)
-			expect(instance.removeEventListener).toHaveBeenCalled()
+			instance.start()
+			expect(onStart).not.toHaveBeenCalled()
 		})
 
 		it('does nothing once cleaned up', () => {
@@ -1270,12 +1272,20 @@ describe('Vocal', () => {
 			expect(instance.stop).toHaveBeenCalled()
 		})
 
-		it('removes all registered listeners', () => {
+		it('stops forwarding events to user listeners after cleanup', () => {
+			const onStart = vi.fn()
+			const onEnd = vi.fn()
 			const { vocal, instance } = setup()
-			vocal.on(eventTypes.START, vi.fn())
-			vocal.on(eventTypes.END, vi.fn())
+			vocal.on(eventTypes.START, onStart)
+			vocal.on(eventTypes.END, onEnd)
 			vocal.cleanup()
-			expect(instance.removeEventListener).toHaveBeenCalledTimes(6)
+			// cleanup() runs a final stop() (emitting a trailing 'end'); assert nothing flows afterwards.
+			onStart.mockClear()
+			onEnd.mockClear()
+			instance.start()
+			instance.stop()
+			expect(onStart).not.toHaveBeenCalled()
+			expect(onEnd).not.toHaveBeenCalled()
 		})
 
 		it('removes the internal end, start, error and result listeners on cleanup', () => {
