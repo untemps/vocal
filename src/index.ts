@@ -1,6 +1,8 @@
 export { createVocal, isSupported, eventTypes } from './Vocal'
+export { SpeechEngine } from './SpeechEngine'
 export type {
 	VocalOptions,
+	CreateVocalOptions,
 	VocalInstance,
 	EventType,
 	ResultEventHandler,
@@ -8,4 +10,7 @@ export type {
 	PermissionEventHandler,
 	GenericEventHandler,
 	EventHandlerFor,
-} from './Vocal'
+	SpeechEngineInstance,
+	SpeechEngineContext,
+	SpeechEngineFactory,
+} from './types'

@@ -1,5 +1,13 @@
 import { SpeechEngine } from './SpeechEngine'
-import { eventTypes, type EventType, type SpeechEngineContext, type VocalInstance, type VocalOptions } from './types'
+import {
+	eventTypes,
+	type CreateVocalOptions,
+	type EventType,
+	type SpeechEngineContext,
+	type SpeechEngineFactory,
+	type VocalInstance,
+	type VocalOptions,
+} from './types'
 
 export { eventTypes } from './types'
 export type {
@@ -28,12 +36,15 @@ const includesEventType = (eventType: string): boolean => Object.values(eventTyp
 const unknownEventTypeMessage = (eventType: string): string =>
 	`Unknown event type "${eventType}". Valid types are: ${Object.values(eventTypes).join(', ')}.`
 
-export const isSupported = (): boolean => SpeechEngine.isSupported()
+// Engine-aware: with no argument probes the default Web Speech engine; pass a factory
+// to delegate support detection to a custom backend.
+export const isSupported = (engineFactory: SpeechEngineFactory = SpeechEngine): boolean => engineFactory.isSupported()
 
-export const createVocal = (options?: VocalOptions): VocalInstance => {
+export const createVocal = (options?: CreateVocalOptions): VocalInstance => {
+	const { engine: engineFactory = SpeechEngine, ...vocalOptions } = options ?? {}
 	const resolvedOptions: Required<VocalOptions> = {
 		...defaultOptions,
-		...(options ?? {}),
+		...vocalOptions,
 	}
 
 	// The core owns the user listener registry; the engine pushes already-shaped events
@@ -49,7 +60,7 @@ export const createVocal = (options?: VocalOptions): VocalInstance => {
 		snapshot.forEach((callback) => callback(...payload))
 	}) as SpeechEngineContext['emit']
 
-	const engine = SpeechEngine({ options: resolvedOptions, emit })
+	const engine = engineFactory({ options: resolvedOptions, emit })
 	// The engine's generic `subscribe`/`unsubscribe` are notifications keyed by type; the core
 	// drives them with its loosely-typed registry callbacks, so narrow to a plain signature here.
 	const subscribe = engine.subscribe as (type: EventType, callback: EventHandler) => void

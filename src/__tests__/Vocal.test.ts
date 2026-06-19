@@ -1,4 +1,5 @@
 import { createVocal, isSupported, eventTypes, type VocalInstance } from '../Vocal'
+import type { EventType, SpeechEngineContext, SpeechEngineFactory, SpeechEngineInstance } from '../types'
 import * as userPermissionsUtils from '@untemps/user-permissions-utils'
 
 type MockFn = {
@@ -1295,6 +1296,110 @@ describe('Vocal', () => {
 			expect(instance.removeEventListener).toHaveBeenCalledWith('start', expect.any(Function))
 			expect(instance.removeEventListener).toHaveBeenCalledWith('error', expect.any(Function))
 			expect(instance.removeEventListener).toHaveBeenCalledWith('result', expect.any(Function))
+		})
+	})
+
+	describe('custom engine', () => {
+		const createMockEngine = (options: { supported?: boolean } = {}) => {
+			const calls = {
+				start: 0,
+				stop: 0,
+				abort: 0,
+				cleanup: 0,
+				subscribed: [] as EventType[],
+				unsubscribed: [] as EventType[],
+			}
+			let recording = false
+			let context: SpeechEngineContext | undefined
+			const factory = ((ctx: SpeechEngineContext): SpeechEngineInstance => {
+				context = ctx
+				return {
+					get isRecording() {
+						return recording
+					},
+					async start() {
+						recording = true
+						calls.start++
+					},
+					stop() {
+						recording = false
+						calls.stop++
+					},
+					abort() {
+						recording = false
+						calls.abort++
+					},
+					subscribe(type: EventType) {
+						calls.subscribed.push(type)
+					},
+					unsubscribe(type: EventType) {
+						calls.unsubscribed.push(type)
+					},
+					cleanup() {
+						recording = false
+						calls.cleanup++
+					},
+				}
+			}) as SpeechEngineFactory
+			factory.isSupported = () => options.supported ?? true
+			return { factory, calls, getContext: () => context! }
+		}
+
+		it('drives the provided engine factory instead of the default', async () => {
+			const { factory, calls } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			await vocal.start()
+			expect(calls.start).toBe(1)
+			expect(vocal.isRecording).toBe(true)
+			vocal.stop()
+			expect(calls.stop).toBe(1)
+			expect(vocal.isRecording).toBe(false)
+		})
+
+		it('passes the resolved options to the engine context', () => {
+			const { factory, getContext } = createMockEngine()
+			createVocal({ engine: factory, lang: 'fr-FR', continuous: true })
+			expect(getContext().options).toEqual({
+				grammars: null,
+				lang: 'fr-FR',
+				continuous: true,
+				interimResults: false,
+				maxAlternatives: 1,
+			})
+		})
+
+		it('fans out the engine emit() to user listeners', () => {
+			const { factory, getContext } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			const onResult = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+			const event = new Event(eventTypes.RESULT) as unknown as SpeechRecognitionEvent
+			getContext().emit(eventTypes.RESULT, event, 'hello', ['hello'])
+			expect(onResult).toHaveBeenCalledWith(event, 'hello', ['hello'])
+		})
+
+		it('notifies the engine when listeners are added and removed', () => {
+			const { factory, calls } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			const callback = vi.fn()
+			vocal.on(eventTypes.START, callback)
+			expect(calls.subscribed).toContain(eventTypes.START)
+			vocal.off(eventTypes.START, callback)
+			expect(calls.unsubscribed).toContain(eventTypes.START)
+		})
+
+		it('delegates abort and cleanup to the engine', () => {
+			const { factory, calls } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			vocal.abort()
+			expect(calls.abort).toBe(1)
+			vocal.cleanup()
+			expect(calls.cleanup).toBe(1)
+		})
+
+		it('reports support through the provided factory', () => {
+			expect(isSupported(createMockEngine({ supported: true }).factory)).toBe(true)
+			expect(isSupported(createMockEngine({ supported: false }).factory)).toBe(false)
 		})
 	})
 })
