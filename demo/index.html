@@ -115,8 +115,9 @@
 			}
 
 			label input[type="text"], label input[type="number"] { width: 120px; flex-shrink: 0; }
+			label select, label input[type="password"] { width: 150px; flex-shrink: 0; }
 
-			select, input[type="number"], input[type="text"] {
+			select, input[type="number"], input[type="text"], input[type="password"] {
 				background: var(--bg);
 				border: 1px solid var(--border);
 				border-radius: 4px;
@@ -131,7 +132,18 @@
 				margin-top: 20px;
 			}
 
-			.grow { flex: 1; }
+			.engine-note {
+				color: var(--warn);
+				font-size: 10px;
+				line-height: 1.45;
+				margin-top: 4px;
+			}
+
+			label:has(:disabled) {
+				opacity: 0.45;
+			}
+
+			.grow { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
 			/* Controls */
 			.btn-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
@@ -194,7 +206,8 @@
 
 			/* Log */
 			#log {
-				height: 360px;
+				flex: 1;
+				min-height: 0;
 				overflow-y: auto;
 				display: flex;
 				flex-direction: column;
@@ -246,7 +259,7 @@
 
 				.btn-grid { gap: 10px; }
 
-				#log { height: 240px; }
+				#log { flex: none; height: 240px; }
 
 				details.collapsible {
 					background: var(--surface);
@@ -301,7 +314,7 @@
 		<p class="subtitle">SpeechRecognition wrapper</p>
 
 		<div id="unsupported-banner" class="unsupported" style="display:none">
-			SpeechRecognition not supported in this browser. Try Chrome or Edge.
+			Web Speech is unavailable in this browser. Switch the Engine below to "Gladia (cloud)" to transcribe here.
 		</div>
 
 		<div class="grid">
@@ -309,7 +322,26 @@
 			<div class="col">
 				<!-- Status + Options collapsible -->
 				<details class="collapsible" id="panel-config">
-					<summary class="collapsible-summary">Status &amp; Options</summary>
+					<summary class="collapsible-summary">Engine, Status &amp; Options</summary>
+
+					<!-- Engine -->
+					<div class="card">
+						<div class="card-title">Engine</div>
+						<label>
+							engine
+							<select id="opt-engine">
+								<option value="webspeech">Web Speech (default)</option>
+								<option value="gladia">Gladia (cloud)</option>
+							</select>
+						</label>
+						<label id="gladia-key-field" style="display:none">
+							Gladia API key
+							<input type="password" id="opt-gladia-key" placeholder="x-gladia-key" autocomplete="off" />
+						</label>
+						<p id="gladia-note" class="engine-note" style="display:none">
+							Dev only — the key is exposed in the browser. In production, mint the session URL server-side.
+						</p>
+					</div>
 
 					<!-- Status -->
 					<div class="card">

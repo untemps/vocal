@@ -1,4 +1,5 @@
-import { createVocal, isSupported as isVocalSupported, type VocalInstance } from '../src/index'
+import { createVocal, isSupported as isVocalSupported, type SpeechEngineFactory, type VocalInstance } from '../src/index'
+import { createGladiaEngine } from './gladiaEngine'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,10 @@ const $optLang       = document.getElementById('opt-lang') as HTMLInputElement
 const $optMaxAlt     = document.getElementById('opt-maxalt') as HTMLInputElement
 const $optContinuous = document.getElementById('opt-continuous') as HTMLInputElement
 const $optInterim    = document.getElementById('opt-interim') as HTMLInputElement
+const $optEngine     = document.getElementById('opt-engine') as HTMLSelectElement
+const $optGladiaKey  = document.getElementById('opt-gladia-key') as HTMLInputElement
+const $gladiaField   = document.getElementById('gladia-key-field') as HTMLElement
+const $gladiaNote    = document.getElementById('gladia-note') as HTMLElement
 
 const $btnStart   		= document.getElementById('btn-start') as HTMLButtonElement
 const $btnStop    		= document.getElementById('btn-stop') as HTMLButtonElement
@@ -24,8 +29,11 @@ const $btnClearLog 		= document.getElementById('btn-clear-log') as HTMLButtonEle
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
-const isSupported = isVocalSupported()
 let vocal: VocalInstance | null = null
+
+// Vite exposes VITE_*-prefixed vars on import.meta.env. A key here only pre-fills the
+// field (handy in local dev via .env.local); it is never committed.
+const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -74,8 +82,38 @@ function setAlternatives(alts: string[], label = 'Alternatives') {
 	$alternatives.appendChild(ul)
 }
 
+// ── Engine selection ────────────────────────────────────────────────────────────
+
+function gladiaKey(): string {
+	return $optGladiaKey.value.trim()
+}
+
+// null → the built-in Web Speech engine; otherwise a custom factory passed to createVocal.
+function currentEngineFactory(): SpeechEngineFactory | null {
+	if ($optEngine.value !== 'gladia') return null
+	return createGladiaEngine({ apiKey: gladiaKey() })
+}
+
+function isCurrentSupported(): boolean {
+	const factory = currentEngineFactory()
+	return factory ? isVocalSupported(factory) : isVocalSupported()
+}
+
+function needsMissingKey(): boolean {
+	return $optEngine.value === 'gladia' && !gladiaKey()
+}
+
+function syncEngineUI() {
+	const isGladia = $optEngine.value === 'gladia'
+	$gladiaField.style.display = isGladia ? '' : 'none'
+	$gladiaNote.style.display = isGladia ? '' : 'none'
+	// Gladia streams continuously and returns a single hypothesis, so these have no effect there.
+	$optMaxAlt.disabled = isGladia
+	$optContinuous.disabled = isGladia
+}
+
 function updateStatus() {
-	setBadge($supported, isSupported)
+	setBadge($supported, isCurrentSupported())
 
 	if (vocal) {
 		const recording = vocal.isRecording
@@ -84,7 +122,7 @@ function updateStatus() {
 		setBadge($recording, false)
 	}
 
-	$btnStart.disabled   = !vocal || vocal.isRecording
+	$btnStart.disabled   = !vocal || vocal.isRecording || needsMissingKey()
 	$btnStop.disabled    = !vocal || !vocal.isRecording
 	$btnAbort.disabled   = !vocal || !vocal.isRecording
 	$btnCleanup.disabled = !vocal
@@ -129,8 +167,16 @@ function initVocal() {
 		vocal = null
 	}
 
+	const engine = currentEngineFactory()
+	const supported = engine ? isVocalSupported(engine) : isVocalSupported()
+	$banner.style.display = supported ? 'none' : 'block'
+	if (!supported) {
+		updateStatus()
+		return
+	}
+
 	const options = buildOptions()
-	vocal = createVocal(options)
+	vocal = createVocal(engine ? { ...options, engine } : options)
 
 	vocal.on('result', (_, best, alts) => {
 		$transcript.textContent = best
@@ -156,7 +202,7 @@ function initVocal() {
 	vocal.on('speechstart', logEvent('speechstart'))
 	vocal.on('speechend',   logEvent('speechend'))
 
-	log('init', JSON.stringify(options))
+	log('init', JSON.stringify({ engine: $optEngine.value, ...options }))
 	updateStatus()
 }
 
@@ -172,14 +218,9 @@ window.addEventListener('resize', syncCollapsible)
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-if (!isSupported) {
-	$banner.style.display = 'block'
-	;[$btnStart, $btnStop, $btnAbort, $btnCleanup, $btnResetOptions].forEach(
-		(b) => (b.disabled = true)
-	)
-} else {
-	initVocal()
-}
+$optGladiaKey.value = env.VITE_GLADIA_API_KEY ?? ''
+syncEngineUI()
+initVocal()
 
 // ── Bindings ──────────────────────────────────────────────────────────────────
 
@@ -188,12 +229,17 @@ $btnResetOptions.addEventListener('click', () => {
 	vocal?.cleanup()
 	vocal = null
 	log('Reset Options')
-	initVocal()	
+	initVocal()
 })
 
-;[$optLang, $optMaxAlt, $optContinuous, $optInterim].forEach((el) =>
+;[$optLang, $optMaxAlt, $optContinuous, $optInterim, $optGladiaKey].forEach((el) =>
 	el.addEventListener('change', initVocal)
 )
+
+$optEngine.addEventListener('change', () => {
+	syncEngineUI()
+	initVocal()
+})
 
 $btnStart.addEventListener('click', async () => {
 	if (!vocal) return

@@ -11,6 +11,10 @@ node_modules/
 .DS_STORE
 CLAUDE.md
 
+# Env (never commit API keys)
+.env
+.env.*
+
 # NPM
 npm-debug.log*
 yarn-debug.log*
