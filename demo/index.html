@@ -325,7 +325,7 @@
 		<p class="subtitle">SpeechRecognition wrapper</p>
 
 		<div id="unsupported-banner" class="unsupported" style="display:none">
-			Web Speech is unavailable in this browser. Switch the Engine below to "Gladia (cloud)" to transcribe here.
+			Web Speech is unavailable in this browser. Switch the Engine below to a cloud option (Gladia or OpenAI Realtime) to transcribe here.
 		</div>
 
 		<div class="grid">
@@ -341,12 +341,13 @@
 						<select id="opt-engine">
 							<option value="webspeech">Web Speech (default)</option>
 							<option value="gladia">Gladia (cloud)</option>
+							<option value="openai">OpenAI Realtime</option>
 						</select>
-						<label id="gladia-key-field" style="display:none">
+						<label id="api-key-field" style="display:none">
 							API key
-							<input type="password" id="opt-gladia-key" placeholder="x-gladia-key" autocomplete="off" />
+							<input type="password" id="opt-api-key" placeholder="API key" autocomplete="off" />
 						</label>
-						<p id="gladia-note" class="engine-note" style="display:none">
+						<p id="api-key-note" class="engine-note" style="display:none">
 							Dev only — the key is exposed in the browser. In production, mint the session URL server-side.
 						</p>
 					</div>

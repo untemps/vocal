@@ -1,4 +1,6 @@
+import { getUserMediaStream, isMediaDevicesSupported } from '@untemps/user-permissions-utils'
 import type { SpeechEngineContext, SpeechEngineFactory, SpeechEngineInstance } from '../src/index'
+import { createPermissionWatch } from './permissionWatch'
 
 // Custom speech engine for the demo: real-time speech-to-text through Gladia's v2 live API.
 //
@@ -11,6 +13,8 @@ import type { SpeechEngineContext, SpeechEngineFactory, SpeechEngineInstance } f
 // demo/vite.config.js) to dodge CORS. The API key is captured in the factory closure,
 // so it never travels through createVocal's option bag — this is the idiomatic way to
 // hand a custom engine its own configuration while staying compatible with the contract.
+// Microphone access and permission are handled via @untemps/user-permissions-utils, like
+// the built-in WebSpeechEngine.
 
 const GLADIA_INIT_URL = '/gladia-api/v2/live'
 const SAMPLE_RATE = 16000
@@ -24,9 +28,6 @@ interface GladiaMessage {
 	data?: { is_final?: boolean; utterance?: { text?: string } }
 }
 
-const makePermissionEvent = (state: PermissionState): Event & { state: PermissionState } =>
-	Object.assign(new Event('permission'), { state })
-
 export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactory => {
 	const factory = ({ options, emit }: SpeechEngineContext): SpeechEngineInstance => {
 		let ws: WebSocket | null = null
@@ -35,6 +36,9 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 		let source: MediaStreamAudioSourceNode | null = null
 		let stream: MediaStream | null = null
 		let recording = false
+
+		// Surfaces the `permission` event, opened lazily on the first subscription.
+		const permission = createPermissionWatch(emit)
 
 		// Gladia expects an ISO-639 language code; map 'fr-FR' → 'fr' but tolerate a bare code.
 		const language = options.lang.split('-')[0] || options.lang
@@ -110,8 +114,7 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 		const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
 			if (recording) return
 			try {
-				stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-				emit('permission', makePermissionEvent('granted'), 'granted')
+				stream = await getUserMediaStream('microphone', { audio: true }, { signal })
 				if (signal?.aborted) {
 					releaseAudio()
 					return
@@ -142,9 +145,6 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 				releaseAudio()
 				// Honour the contract: resolve (don't reject) when aborted via the signal.
 				if (error instanceof Error && error.name === 'AbortError') return
-				if (error instanceof DOMException && error.name === 'NotAllowedError') {
-					emit('permission', makePermissionEvent('denied'), 'denied')
-				}
 				throw error
 			}
 		}
@@ -167,6 +167,7 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 
 		const cleanup = (): void => {
 			abort()
+			permission.teardown()
 			ws = null
 		}
 
@@ -177,15 +178,14 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 			start,
 			stop,
 			abort,
-			// No sticky state to replay and no lazily-wired resource to release per type.
-			subscribe() {},
-			unsubscribe() {},
+			subscribe: permission.subscribe,
+			unsubscribe: permission.unsubscribe,
 			cleanup,
 		}
 	}
 
 	// Support is engine-defined: Gladia needs a microphone and a WebSocket, not SpeechRecognition.
-	factory.isSupported = (): boolean => !!navigator.mediaDevices?.getUserMedia && typeof WebSocket !== 'undefined'
+	factory.isSupported = (): boolean => isMediaDevicesSupported() && typeof WebSocket !== 'undefined'
 
 	return factory
 }

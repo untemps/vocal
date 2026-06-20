@@ -18,6 +18,13 @@ export default defineConfig({
 				changeOrigin: true,
 				rewrite: (path) => path.replace(/^\/gladia-api/, ''),
 			},
+			// OpenAI Realtime: mint the ephemeral token and exchange SDP through the proxy to
+			// dodge CORS. '/openai-api' cannot collide with '/openaiRealtimeEngine.ts'.
+			'/openai-api': {
+				target: 'https://api.openai.com',
+				changeOrigin: true,
+				rewrite: (path) => path.replace(/^\/openai-api/, ''),
+			},
 		},
 	},
 })

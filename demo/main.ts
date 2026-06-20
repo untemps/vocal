@@ -1,5 +1,6 @@
 import { createVocal, isSupported as isVocalSupported, type SpeechEngineFactory, type VocalInstance } from '../src/index'
 import { createGladiaEngine } from './gladiaEngine'
+import { createOpenAIRealtimeEngine } from './openaiRealtimeEngine'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
@@ -16,9 +17,9 @@ const $optMaxAlt     = document.getElementById('opt-maxalt') as HTMLInputElement
 const $optContinuous = document.getElementById('opt-continuous') as HTMLInputElement
 const $optInterim    = document.getElementById('opt-interim') as HTMLInputElement
 const $optEngine     = document.getElementById('opt-engine') as HTMLSelectElement
-const $optGladiaKey  = document.getElementById('opt-gladia-key') as HTMLInputElement
-const $gladiaField   = document.getElementById('gladia-key-field') as HTMLElement
-const $gladiaNote    = document.getElementById('gladia-note') as HTMLElement
+const $optApiKey     = document.getElementById('opt-api-key') as HTMLInputElement
+const $apiKeyField   = document.getElementById('api-key-field') as HTMLElement
+const $apiKeyNote    = document.getElementById('api-key-note') as HTMLElement
 
 const $btnStart   		= document.getElementById('btn-start') as HTMLButtonElement
 const $btnStop    		= document.getElementById('btn-stop') as HTMLButtonElement
@@ -31,8 +32,8 @@ const $btnClearLog 		= document.getElementById('btn-clear-log') as HTMLButtonEle
 
 let vocal: VocalInstance | null = null
 
-// Vite exposes VITE_*-prefixed vars on import.meta.env. A key here only pre-fills the
-// field (handy in local dev via .env.local); it is never committed.
+// Vite exposes VITE_*-prefixed vars on import.meta.env. VITE_GLADIA_API_KEY / VITE_OPENAI_API_KEY
+// pre-fill the key field for the matching engine (handy in local dev via .env.local); never committed.
 const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -84,14 +85,27 @@ function setAlternatives(alts: string[], label = 'Alternatives') {
 
 // ── Engine selection ────────────────────────────────────────────────────────────
 
-function gladiaKey(): string {
-	return $optGladiaKey.value.trim()
+function apiKey(): string {
+	return $optApiKey.value.trim()
+}
+
+// Cloud engines need an API key and don't honour the Web Speech-only options.
+function isCloudEngine(): boolean {
+	return $optEngine.value === 'gladia' || $optEngine.value === 'openai'
+}
+
+// Different providers use different keys; pre-fill the shared field from the matching env var.
+function envKeyFor(engine: string): string {
+	if (engine === 'gladia') return env.VITE_GLADIA_API_KEY ?? ''
+	if (engine === 'openai') return env.VITE_OPENAI_API_KEY ?? ''
+	return ''
 }
 
 // null → the built-in Web Speech engine; otherwise a custom factory passed to createVocal.
 function currentEngineFactory(): SpeechEngineFactory | null {
-	if ($optEngine.value !== 'gladia') return null
-	return createGladiaEngine({ apiKey: gladiaKey() })
+	if ($optEngine.value === 'gladia') return createGladiaEngine({ apiKey: apiKey() })
+	if ($optEngine.value === 'openai') return createOpenAIRealtimeEngine({ apiKey: apiKey() })
+	return null
 }
 
 function isCurrentSupported(): boolean {
@@ -100,16 +114,16 @@ function isCurrentSupported(): boolean {
 }
 
 function needsMissingKey(): boolean {
-	return $optEngine.value === 'gladia' && !gladiaKey()
+	return isCloudEngine() && !apiKey()
 }
 
 function syncEngineUI() {
-	const isGladia = $optEngine.value === 'gladia'
-	$gladiaField.style.display = isGladia ? '' : 'none'
-	$gladiaNote.style.display = isGladia ? '' : 'none'
-	// Gladia streams continuously and returns a single hypothesis, so these have no effect there.
-	$optMaxAlt.disabled = isGladia
-	$optContinuous.disabled = isGladia
+	const cloud = isCloudEngine()
+	$apiKeyField.style.display = cloud ? '' : 'none'
+	$apiKeyNote.style.display = cloud ? '' : 'none'
+	// Cloud engines stream a single hypothesis; these Web Speech-only options don't apply.
+	$optMaxAlt.disabled = cloud
+	$optContinuous.disabled = cloud
 }
 
 function updateStatus() {
@@ -218,7 +232,7 @@ window.addEventListener('resize', syncCollapsible)
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-$optGladiaKey.value = env.VITE_GLADIA_API_KEY ?? ''
+$optApiKey.value = envKeyFor($optEngine.value)
 syncEngineUI()
 initVocal()
 
@@ -232,11 +246,13 @@ $btnResetOptions.addEventListener('click', () => {
 	initVocal()
 })
 
-;[$optLang, $optMaxAlt, $optContinuous, $optInterim, $optGladiaKey].forEach((el) =>
+;[$optLang, $optMaxAlt, $optContinuous, $optInterim, $optApiKey].forEach((el) =>
 	el.addEventListener('change', initVocal)
 )
 
 $optEngine.addEventListener('change', () => {
+	// Switching provider: reset the shared key field (different keys), pre-filling from env if set.
+	$optApiKey.value = envKeyFor($optEngine.value)
 	syncEngineUI()
 	initVocal()
 })
