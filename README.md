@@ -163,12 +163,12 @@ The observation is **best-effort**: it never displays a prompt itself (only `sta
 
 ## Top-level exports
 
-| Export         | Kind     | Description                                                                                                          |
-| -------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
-| `createVocal`  | function | Factory that returns a `VocalInstance`. Accepts an optional `engine` factory (see [Custom speech engines](#custom-speech-engines)). See [Methods](#methods). |
-| `isSupported`  | function | With no argument, returns `true` when both the `SpeechRecognition` Web API and `navigator.mediaDevices.getUserMedia` are available (the Permissions API is **not** required — best-effort). Pass a `SpeechEngineFactory` to probe a [custom engine](#custom-speech-engines) instead. Call it (it is **not** a getter). |
-| `eventTypes`   | const    | Map of valid event type strings (e.g. `eventTypes.RESULT === 'result'`).                                            |
-| `SpeechEngine` | function | The built-in Web Speech engine factory — the default backend used when no `engine` is supplied. See [Custom speech engines](#custom-speech-engines). |
+| Export            | Kind     | Description                                                                                                          |
+| ----------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `createVocal`     | function | Factory that returns a `VocalInstance`. Accepts an optional `engine` factory (see [Custom speech engines](#custom-speech-engines)). See [Methods](#methods). |
+| `isSupported`     | function | With no argument, returns `true` when both the `SpeechRecognition` Web API and `navigator.mediaDevices.getUserMedia` are available (the Permissions API is **not** required — best-effort). Pass a `SpeechEngineFactory` to probe a [custom engine](#custom-speech-engines) instead. Call it (it is **not** a getter). |
+| `eventTypes`      | const    | Map of valid event type strings (e.g. `eventTypes.RESULT === 'result'`).                                            |
+| `WebSpeechEngine` | function | The built-in Web Speech engine factory — the default backend used when no `engine` is supplied. See [Custom speech engines](#custom-speech-engines). |
 
 The TypeScript types `SpeechEngineFactory`, `SpeechEngineInstance`, `SpeechEngineContext` and `CreateVocalOptions` are exported for engine authors.
 
@@ -249,7 +249,7 @@ Stops recognition, removes all registered listeners, and releases the internal `
 
 ## Custom speech engines
 
-`createVocal()` is backend-agnostic. By default it drives the browser's Web Speech API through the built-in **`SpeechEngine`** factory, but you can pass your own `engine` to target a different backend — an on-device model (Vosk, whisper.cpp, `transformers.js`) or a cloud STT service (Deepgram, Google Cloud Speech-to-Text, Azure, OpenAI). This is the seam consumers such as [`@untemps/react-vocal`](https://github.com/untemps/react-vocal) build on, and it brings speech recognition to browsers where `SpeechRecognition` is missing (e.g. Firefox).
+`createVocal()` is backend-agnostic. By default it drives the browser's Web Speech API through the built-in **`WebSpeechEngine`** factory, but you can pass your own `engine` to target a different backend — an on-device model (Vosk, whisper.cpp, `transformers.js`) or a cloud STT service (Deepgram, Google Cloud Speech-to-Text, Azure, OpenAI). This is the seam consumers such as [`@untemps/react-vocal`](https://github.com/untemps/react-vocal) build on, and it brings speech recognition to browsers where `SpeechRecognition` is missing (e.g. Firefox).
 
 Responsibilities are split cleanly:
 

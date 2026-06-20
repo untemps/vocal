@@ -1,4 +1,4 @@
-import { SpeechEngine } from './SpeechEngine'
+import { WebSpeechEngine } from './WebSpeechEngine'
 import {
 	eventTypes,
 	type CreateVocalOptions,
@@ -38,10 +38,11 @@ const unknownEventTypeMessage = (eventType: string): string =>
 
 // Engine-aware: with no argument probes the default Web Speech engine; pass a factory
 // to delegate support detection to a custom backend.
-export const isSupported = (engineFactory: SpeechEngineFactory = SpeechEngine): boolean => engineFactory.isSupported()
+export const isSupported = (engineFactory: SpeechEngineFactory = WebSpeechEngine): boolean =>
+	engineFactory.isSupported()
 
 export const createVocal = (options?: CreateVocalOptions): VocalInstance => {
-	const { engine: engineFactory = SpeechEngine, ...vocalOptions } = options ?? {}
+	const { engine: engineFactory = WebSpeechEngine, ...vocalOptions } = options ?? {}
 	const resolvedOptions: Required<VocalOptions> = {
 		...defaultOptions,
 		...vocalOptions,

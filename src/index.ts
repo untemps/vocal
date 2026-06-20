@@ -1,5 +1,5 @@
 export { createVocal, isSupported, eventTypes } from './Vocal'
-export { SpeechEngine } from './SpeechEngine'
+export { WebSpeechEngine } from './WebSpeechEngine'
 export type {
 	VocalOptions,
 	CreateVocalOptions,

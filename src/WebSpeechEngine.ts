@@ -69,7 +69,7 @@ const makeSyntheticResults = (results: SpeechRecognitionResult[]): SpeechRecogni
 const makePermissionEvent = (state: PermissionState): Event & { state: PermissionState } =>
 	Object.assign(new Event(eventTypes.PERMISSION), { state })
 
-export const SpeechEngine: SpeechEngineFactory = (context: SpeechEngineContext): SpeechEngineInstance => {
+export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContext): SpeechEngineInstance => {
 	const { options, emit } = context
 	// Loosely-typed escape hatch for the degenerate `result` path (no extractable transcript)
 	// and for passthrough events whose type is only known at runtime.
@@ -310,4 +310,4 @@ export const SpeechEngine: SpeechEngineFactory = (context: SpeechEngineContext):
 	}
 }
 
-SpeechEngine.isSupported = (): boolean => !!resolveSpeechRecognition() && isMediaDevicesSupported()
+WebSpeechEngine.isSupported = (): boolean => !!resolveSpeechRecognition() && isMediaDevicesSupported()

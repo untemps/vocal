@@ -97,9 +97,9 @@ export interface VocalInstance {
 // ── Pluggable speech engine contract ─────────────────────────────────────────
 //
 // `createVocal` owns the engine-agnostic surface (user listener registry, event
-// fan-out, the `isRecording` getter and lifecycle delegation). A `SpeechEngine`
+// fan-out, the `isRecording` getter and lifecycle delegation). An engine
 // owns everything backend-specific and pushes already-shaped events back to the
-// core through `SpeechEngineContext.emit`. The default engine is `SpeechEngine`
+// core through `SpeechEngineContext.emit`. The default engine is `WebSpeechEngine`
 // (the Web Speech implementation); consumers can supply their own factory to
 // target on-device or cloud backends.
 
