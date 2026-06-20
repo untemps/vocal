@@ -115,7 +115,8 @@
 			}
 
 			label input[type="text"], label input[type="number"] { width: 120px; flex-shrink: 0; }
-			label select, label input[type="password"] { width: 150px; flex-shrink: 0; }
+			label input[type="password"] { width: 150px; flex-shrink: 0; }
+			#opt-engine { margin-bottom: 10px; }
 
 			select, input[type="number"], input[type="text"], input[type="password"] {
 				background: var(--bg);
@@ -126,6 +127,16 @@
 				font-family: var(--font);
 				font-size: 12px;
 				width: 100%;
+			}
+
+			select {
+				appearance: none;
+				-webkit-appearance: none;
+				-moz-appearance: none;
+				padding-right: 28px;
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237070a0' stroke-width='1.5'/%3E%3C/svg%3E");
+				background-repeat: no-repeat;
+				background-position: right 8px center;
 			}
 
 			label:has(input[type="checkbox"]) {
@@ -327,15 +338,12 @@
 					<!-- Engine -->
 					<div class="card">
 						<div class="card-title">Engine</div>
-						<label>
-							engine
-							<select id="opt-engine">
-								<option value="webspeech">Web Speech (default)</option>
-								<option value="gladia">Gladia (cloud)</option>
-							</select>
-						</label>
+						<select id="opt-engine">
+							<option value="webspeech">Web Speech (default)</option>
+							<option value="gladia">Gladia (cloud)</option>
+						</select>
 						<label id="gladia-key-field" style="display:none">
-							Gladia API key
+							API key
 							<input type="password" id="opt-gladia-key" placeholder="x-gladia-key" autocomplete="off" />
 						</label>
 						<p id="gladia-note" class="engine-note" style="display:none">
