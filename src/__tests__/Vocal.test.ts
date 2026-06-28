@@ -1397,6 +1397,27 @@ describe('Vocal', () => {
 			expect(calls.cleanup).toBe(1)
 		})
 
+		it('ignores start/stop/abort and reports not recording after cleanup', async () => {
+			const { factory, calls } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			vocal.cleanup()
+			await vocal.start()
+			vocal.stop()
+			vocal.abort()
+			expect(calls.start).toBe(0)
+			expect(calls.stop).toBe(0)
+			expect(calls.abort).toBe(0)
+			expect(vocal.isRecording).toBe(false)
+		})
+
+		it('only tears the engine down once across repeated cleanup calls', () => {
+			const { factory, calls } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			vocal.cleanup()
+			vocal.cleanup()
+			expect(calls.cleanup).toBe(1)
+		})
+
 		it('reports support through the provided factory', () => {
 			expect(isSupported(createMockEngine({ supported: true }).factory)).toBe(true)
 			expect(isSupported(createMockEngine({ supported: false }).factory)).toBe(false)

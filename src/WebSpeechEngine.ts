@@ -227,11 +227,11 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 	}
 
 	const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
-		if (!instance) return
 		try {
 			const stream = await getUserMediaStream('microphone', { audio: true }, { signal })
 			stream.getTracks().forEach((track) => track.stop())
 			if (signal?.aborted) return
+			// Re-check after the await: cleanup() may have nulled instance while we awaited.
 			if (!instance) return
 			explicitStop = false
 			finalResults = []
@@ -245,19 +245,17 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 	}
 
 	const stop = (): void => {
-		if (!instance) return
 		explicitStop = true
 		clearRestartTimeout()
-		instance.stop()
+		instance!.stop()
 		isRecording = false
 	}
 
 	const abort = (): void => {
-		if (!instance) return
 		explicitStop = true
 		clearRestartTimeout()
 		finalResults = []
-		instance.abort()
+		instance!.abort()
 		isRecording = false
 	}
 

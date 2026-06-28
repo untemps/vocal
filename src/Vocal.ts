@@ -93,6 +93,7 @@ export const createVocal = (options?: CreateVocalOptions): VocalInstance => {
 	}
 
 	const cleanup = (): void => {
+		if (disposed) return
 		disposed = true
 		engine.cleanup()
 		Object.keys(listeners).forEach((key) => delete listeners[key])
@@ -100,11 +101,15 @@ export const createVocal = (options?: CreateVocalOptions): VocalInstance => {
 
 	return {
 		get isRecording() {
-			return engine.isRecording
+			return disposed ? false : engine.isRecording
 		},
-		start: (startOptions) => engine.start(startOptions),
-		stop: () => engine.stop(),
-		abort: () => engine.abort(),
+		start: (startOptions) => (disposed ? Promise.resolve() : engine.start(startOptions)),
+		stop: () => {
+			if (!disposed) engine.stop()
+		},
+		abort: () => {
+			if (!disposed) engine.abort()
+		},
 		on: on as VocalInstance['on'],
 		off: off as VocalInstance['off'],
 		cleanup,
