@@ -81,6 +81,12 @@ export const createOpenAIRealtimeEngine = ({
 					} else {
 						emit('result', new Event('result') as SpeechRecognitionEvent, text, [text])
 					}
+					// A final landing inside the stop() flush window extends it, so the trailing
+					// utterance is captured instead of being cut off by the fixed delay.
+					if (flushTimer !== null) {
+						clearTimeout(flushTimer)
+						flushTimer = setTimeout(flushAndEnd, FLUSH_DELAY_MS)
+					}
 					break
 				}
 				case 'conversation.item.input_audio_transcription.failed':
