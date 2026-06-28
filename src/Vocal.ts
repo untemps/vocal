@@ -53,7 +53,13 @@ export const createVocal = (options?: CreateVocalOptions): VocalInstance => {
 		const handlers = listeners[type]
 		if (!handlers?.length) return
 		const snapshot = [...handlers]
-		snapshot.forEach((callback) => callback(...payload))
+		snapshot.forEach((callback) => {
+			try {
+				callback(...payload)
+			} catch (error) {
+				console.error(error)
+			}
+		})
 	}) as SpeechEngineContext['emit']
 
 	const engine = engineFactory({ options: resolvedOptions, emit })

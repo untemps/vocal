@@ -1390,6 +1390,24 @@ describe('Vocal', () => {
 			expect(onResult).toHaveBeenCalledWith(event, 'hello', ['hello'])
 		})
 
+		it('keeps notifying listeners when one of them throws', () => {
+			const { factory, getContext } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			const boom = vi.fn(() => {
+				throw new Error('boom')
+			})
+			const after = vi.fn()
+			const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+			vocal.on(eventTypes.RESULT, boom)
+			vocal.on(eventTypes.RESULT, after)
+			const event = new Event(eventTypes.RESULT) as unknown as SpeechRecognitionEvent
+			getContext().emit(eventTypes.RESULT, event, 'hi', ['hi'])
+			expect(boom).toHaveBeenCalled()
+			expect(after).toHaveBeenCalled()
+			expect(errorSpy).toHaveBeenCalledWith(expect.any(Error))
+			errorSpy.mockRestore()
+		})
+
 		it('notifies the engine when listeners are added and removed', () => {
 			const { factory, calls } = createMockEngine()
 			const vocal = createVocal({ engine: factory })
