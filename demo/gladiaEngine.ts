@@ -118,9 +118,14 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 							(error) => reject(error)
 						)
 					}
-					socket.onmessage = handleMessage
+					socket.onmessage = (event) => {
+						if (ws === socket) handleMessage(event)
+					}
 					socket.onerror = () => reject(new Error('Gladia WebSocket error'))
 					socket.onclose = () => {
+						// A superseded socket (stop() then start() reused this engine) must not tear
+						// down or feed the new session through the shared closure state.
+						if (ws !== socket) return
 						recording = false
 						releaseAudio()
 						const aggregated = aggregator.flush()
