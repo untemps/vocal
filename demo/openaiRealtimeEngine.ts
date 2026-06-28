@@ -127,7 +127,7 @@ export const createOpenAIRealtimeEngine = ({
 			pc = peer
 			peer.addEventListener('connectionstatechange', () => {
 				if (pc !== peer) return
-				if (peer.connectionState === 'failed' || peer.connectionState === 'disconnected') {
+				if (peer.connectionState === 'failed') {
 					endSession({ flush: true })
 				}
 			})
