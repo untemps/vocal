@@ -193,7 +193,7 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 	nativeListeners.forEach(([type, handler]) => instance!.addEventListener(type, handler))
 
 	const ensurePermissionWatch = (): void => {
-		if (!isPermissionsSupported()) return
+		if (permissionWatchController || !isPermissionsSupported()) return
 		const controller = new AbortController()
 		permissionWatchController = controller
 		watchPermission(
@@ -214,11 +214,10 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 
 	const subscribe = (type: EventType, callback: EventHandler): void => {
 		if (type !== eventTypes.PERMISSION) return
-		if (permissionWatchController) {
-			if (lastPermissionState !== null) callback(makePermissionEvent(lastPermissionState), lastPermissionState)
-		} else {
-			ensurePermissionWatch()
-		}
+		// A non-null lastPermissionState implies an active watch (teardown clears both), so
+		// replay the cached state to the late subscriber; ensurePermissionWatch is self-guarding.
+		if (lastPermissionState !== null) callback(makePermissionEvent(lastPermissionState), lastPermissionState)
+		ensurePermissionWatch()
 	}
 
 	const unsubscribe = (type: EventType): void => {
