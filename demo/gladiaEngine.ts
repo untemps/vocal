@@ -5,6 +5,7 @@ import { createTranscriptAggregator } from './transcriptAggregator'
 
 const GLADIA_INIT_URL = '/gladia-api/v2/live'
 const SAMPLE_RATE = 16000
+const STOP_GRACE_MS = 2000
 
 interface GladiaConfig {
 	apiKey: string
@@ -89,12 +90,6 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 			emit('result', new Event('result') as SpeechRecognitionEvent, text, [text])
 		}
 
-		const stopCapture = (): void => {
-			workletNode?.disconnect()
-			source?.disconnect()
-			stream?.getTracks().forEach((track) => track.stop())
-		}
-
 		const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
 			if (recording) return
 			aggregator.clear()
@@ -145,8 +140,12 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 		const stop = (): void => {
 			if (!recording) return
 			recording = false
-			if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'stop_recording' }))
-			stopCapture()
+			const socket = ws
+			if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'stop_recording' }))
+			// Release audio now (don't wait on the server) and bound the wait for its close so the
+			// socket and the 'end' event can't hang on a stalled server.
+			releaseAudio()
+			if (socket) setTimeout(() => socket.close(), STOP_GRACE_MS)
 		}
 
 		const abort = (): void => {
