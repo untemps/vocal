@@ -126,13 +126,17 @@ export const createOpenAIRealtimeEngine = ({
 		}
 
 		const negotiate = async (token: string, signal?: AbortSignal): Promise<void> => {
-			pc = new RTCPeerConnection()
-			pc.addEventListener('connectionstatechange', () => {
-				if (pc && (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')) {
+			// Operate on a stable local handle: a connectionstatechange may null the shared pc
+			// mid-negotiation, and the trailing awaits must not dereference null.
+			const peer = new RTCPeerConnection()
+			pc = peer
+			peer.addEventListener('connectionstatechange', () => {
+				if (pc !== peer) return
+				if (peer.connectionState === 'failed' || peer.connectionState === 'disconnected') {
 					endSession({ flush: true })
 				}
 			})
-			channel = pc.createDataChannel('oai-events')
+			channel = peer.createDataChannel('oai-events')
 			channel.addEventListener('message', (event: MessageEvent) => handleEvent(event.data as string))
 			channel.addEventListener('open', () => {
 				channel?.send(
@@ -150,10 +154,10 @@ export const createOpenAIRealtimeEngine = ({
 					})
 				)
 			})
-			pc.addTrack(stream!.getTracks()[0], stream!)
+			peer.addTrack(stream!.getTracks()[0], stream!)
 
-			const offer = await pc.createOffer()
-			await pc.setLocalDescription(offer)
+			const offer = await peer.createOffer()
+			await peer.setLocalDescription(offer)
 
 			const sdpResponse = await fetch(CALLS_URL, {
 				method: 'POST',
@@ -164,7 +168,9 @@ export const createOpenAIRealtimeEngine = ({
 			if (!sdpResponse.ok) {
 				throw new Error(`OpenAI SDP exchange failed (${sdpResponse.status} ${sdpResponse.statusText})`)
 			}
-			await pc.setRemoteDescription({ type: 'answer', sdp: await sdpResponse.text() })
+			// Bail if the session was torn down (disconnect/abort) while the SDP was in flight.
+			if (pc !== peer) return
+			await peer.setRemoteDescription({ type: 'answer', sdp: await sdpResponse.text() })
 		}
 
 		const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
@@ -183,6 +189,11 @@ export const createOpenAIRealtimeEngine = ({
 					return
 				}
 				await negotiate(token, signal)
+				// negotiate() nulls pc if the session was aborted/torn down while connecting.
+				if (signal?.aborted || !pc) {
+					endSession()
+					return
+				}
 				recording = true
 				emit('start', new Event('start'))
 			} catch (error) {
