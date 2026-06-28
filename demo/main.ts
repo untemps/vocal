@@ -32,8 +32,6 @@ const $btnClearLog 		= document.getElementById('btn-clear-log') as HTMLButtonEle
 
 let vocal: VocalInstance | null = null
 
-// Vite exposes VITE_*-prefixed vars on import.meta.env. VITE_GLADIA_API_KEY / VITE_OPENAI_API_KEY
-// pre-fill the key field for the matching engine (handy in local dev via .env.local); never committed.
 const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -89,19 +87,16 @@ function apiKey(): string {
 	return $optApiKey.value.trim()
 }
 
-// Cloud engines need an API key and don't honour the Web Speech-only options.
 function isCloudEngine(): boolean {
 	return $optEngine.value === 'gladia' || $optEngine.value === 'openai'
 }
 
-// Different providers use different keys; pre-fill the shared field from the matching env var.
 function envKeyFor(engine: string): string {
 	if (engine === 'gladia') return env.VITE_GLADIA_API_KEY ?? ''
 	if (engine === 'openai') return env.VITE_OPENAI_API_KEY ?? ''
 	return ''
 }
 
-// null → the built-in Web Speech engine; otherwise a custom factory passed to createVocal.
 function currentEngineFactory(): SpeechEngineFactory | null {
 	if ($optEngine.value === 'gladia') return createGladiaEngine({ apiKey: apiKey() })
 	if ($optEngine.value === 'openai') return createOpenAIRealtimeEngine({ apiKey: apiKey() })
@@ -121,8 +116,6 @@ function syncEngineUI() {
 	const cloud = isCloudEngine()
 	$apiKeyField.style.display = cloud ? '' : 'none'
 	$apiKeyNote.style.display = cloud ? '' : 'none'
-	// Cloud engines return a single hypothesis, so maxAlternatives doesn't apply. `continuous`
-	// does: it toggles aggregated (one result on stop) vs per-utterance results, like WebSpeech.
 	$optMaxAlt.disabled = cloud
 }
 
@@ -251,7 +244,6 @@ $btnResetOptions.addEventListener('click', () => {
 )
 
 $optEngine.addEventListener('change', () => {
-	// Switching provider: reset the shared key field (different keys), pre-filling from env if set.
 	$optApiKey.value = envKeyFor($optEngine.value)
 	syncEngineUI()
 	initVocal()

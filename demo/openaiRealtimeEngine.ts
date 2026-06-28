@@ -3,27 +3,8 @@ import type { SpeechEngineContext, SpeechEngineFactory, SpeechEngineInstance } f
 import { createPermissionWatch } from './permissionWatch'
 import { createTranscriptAggregator } from './transcriptAggregator'
 
-// Custom speech engine for the demo: real-time transcription through OpenAI's Realtime API
-// over WebRTC — the connection method OpenAI supports from the browser (a raw-key WebSocket
-// is rejected client-side).
-//
-//   1. mint a short-lived client secret (ephemeral token): POST /v1/realtime/client_secrets
-//      with the API key, configured as a transcription session. Routed through the Vite dev
-//      proxy ('/openai-api' → api.openai.com, see demo/vite.config.js) for CORS — the key is
-//      used browser-side here for the demo; in production this call belongs on a server.
-//   2. WebRTC handshake: RTCPeerConnection + mic track + an 'oai-events' data channel, then
-//      POST the SDP offer to /v1/realtime/calls (auth: the ephemeral token) and apply the answer.
-//      WebRTC carries the audio natively, so no PCM worklet is needed here.
-//   3. transcription events arrive on the data channel:
-//      conversation.item.input_audio_transcription.delta / .completed
-//
-// The API key is captured in the factory closure, mirroring createGladiaEngine. Microphone
-// access and permission are handled via @untemps/user-permissions-utils, like the WebSpeechEngine.
-
 const CLIENT_SECRETS_URL = '/openai-api/v1/realtime/client_secrets'
 const CALLS_URL = '/openai-api/v1/realtime/calls'
-// Grace period after stop() so the last server-VAD segment can still arrive before the peer
-// connection is torn down.
 const FLUSH_DELAY_MS = 500
 
 interface OpenAIConfig {
@@ -47,15 +28,12 @@ export const createOpenAIRealtimeEngine = ({
 		let channel: RTCDataChannel | null = null
 		let stream: MediaStream | null = null
 		let recording = false
-		let interim = '' // accumulated delta text for the in-progress utterance
+		let interim = ''
 		let flushTimer: ReturnType<typeof setTimeout> | null = null
 
-		// Surfaces the `permission` event, opened lazily on the first subscription.
 		const permission = createPermissionWatch(emit)
-		// In continuous mode, finals are buffered here and flushed as one result on stop().
 		const aggregator = createTranscriptAggregator()
 
-		// OpenAI expects an ISO-639 language code; map 'fr-FR' → 'fr' but tolerate a bare code.
 		const language = options.lang.split('-')[0] || options.lang
 
 		const endSession = (): void => {
@@ -69,7 +47,6 @@ export const createOpenAIRealtimeEngine = ({
 			channel?.close()
 			pc?.close()
 			stream = channel = pc = null
-			// Only signal 'end' for a session that actually started (a matching 'start' was emitted).
 			if (wasRecording) emit('end', new Event('end'))
 		}
 
@@ -82,7 +59,6 @@ export const createOpenAIRealtimeEngine = ({
 			}
 			switch (message.type) {
 				case 'conversation.item.input_audio_transcription.delta':
-					// Deltas are incremental; accumulate them into the running utterance.
 					interim += message.delta ?? ''
 					if (options.interimResults && interim) {
 						emit('result', new Event('result') as SpeechRecognitionEvent, interim, [interim])
@@ -92,8 +68,6 @@ export const createOpenAIRealtimeEngine = ({
 					const text = message.transcript ?? interim
 					interim = ''
 					if (!text) break
-					// Continuous mode: accumulate finals for one aggregated result on stop(); otherwise
-					// emit per-utterance. `result` shape: (event, bestAlternative, alternatives).
 					if (options.continuous) {
 						aggregator.add(text)
 					} else {
@@ -143,8 +117,6 @@ export const createOpenAIRealtimeEngine = ({
 			})
 			channel = pc.createDataChannel('oai-events')
 			channel.addEventListener('message', (event: MessageEvent) => handleEvent(event.data as string))
-			// Configure transcription once the channel is open: model/language + server VAD so the
-			// server segments the continuous WebRTC audio and emits transcription events on its own.
 			channel.addEventListener('open', () => {
 				channel?.send(
 					JSON.stringify({
@@ -198,7 +170,6 @@ export const createOpenAIRealtimeEngine = ({
 				emit('start', new Event('start'))
 			} catch (error) {
 				endSession()
-				// Honour the contract: resolve (don't reject) when aborted via the signal.
 				if (error instanceof Error && error.name === 'AbortError') return
 				throw error
 			}
@@ -215,14 +186,11 @@ export const createOpenAIRealtimeEngine = ({
 
 		const stop = (): void => {
 			if (!recording || flushTimer !== null) return
-			// Stop sending audio but keep the data channel open briefly so the last server-VAD
-			// segment can still arrive, then flush the aggregate (continuous) and signal 'end'.
 			stream?.getTracks().forEach((track) => track.stop())
 			flushTimer = setTimeout(flushAndEnd, FLUSH_DELAY_MS)
 		}
 
 		const abort = (): void => {
-			// Discard any buffered finals; end immediately with no aggregated result.
 			aggregator.clear()
 			endSession()
 		}
@@ -246,9 +214,7 @@ export const createOpenAIRealtimeEngine = ({
 		}
 	}
 
-	// Support is engine-defined: WebRTC transcription needs a microphone and RTCPeerConnection.
-	factory.isSupported = (): boolean =>
-		isMediaDevicesSupported() && typeof RTCPeerConnection !== 'undefined'
+	factory.isSupported = (): boolean => isMediaDevicesSupported() && typeof RTCPeerConnection !== 'undefined'
 
 	return factory
 }

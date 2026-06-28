@@ -3,20 +3,6 @@ import type { SpeechEngineContext, SpeechEngineFactory, SpeechEngineInstance } f
 import { createPermissionWatch } from './permissionWatch'
 import { createTranscriptAggregator } from './transcriptAggregator'
 
-// Custom speech engine for the demo: real-time speech-to-text through Gladia's v2 live API.
-//
-//   1. POST /v2/live (x-gladia-key header) → { url } WebSocket endpoint
-//   2. stream PCM16 / 16 kHz / mono over the socket (see pcm-worklet.js)
-//   3. receive { type: 'transcript', data: { is_final, utterance: { text } } } messages
-//   4. send { type: 'stop_recording' } to finish; the server then closes with code 1000
-//
-// The init POST goes through the Vite dev proxy ('/gladia-api' → api.gladia.io, see
-// demo/vite.config.js) to dodge CORS. The API key is captured in the factory closure,
-// so it never travels through createVocal's option bag — this is the idiomatic way to
-// hand a custom engine its own configuration while staying compatible with the contract.
-// Microphone access and permission are handled via @untemps/user-permissions-utils, like
-// the built-in WebSpeechEngine.
-
 const GLADIA_INIT_URL = '/gladia-api/v2/live'
 const SAMPLE_RATE = 16000
 
@@ -38,12 +24,9 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 		let stream: MediaStream | null = null
 		let recording = false
 
-		// Surfaces the `permission` event, opened lazily on the first subscription.
 		const permission = createPermissionWatch(emit)
-		// In continuous mode, finals are buffered here and flushed as one result on stop().
 		const aggregator = createTranscriptAggregator()
 
-		// Gladia expects an ISO-639 language code; map 'fr-FR' → 'fr' but tolerate a bare code.
 		const language = options.lang.split('-')[0] || options.lang
 
 		const releaseAudio = (): void => {
@@ -77,8 +60,6 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 
 		const startAudio = async (socket: WebSocket): Promise<void> => {
 			audioContext = new AudioContext({ sampleRate: SAMPLE_RATE })
-			// Served verbatim from demo/public; an AudioWorklet module must be fetched as a
-			// standalone script, never bundled, transformed or inlined.
 			await audioContext.audioWorklet.addModule('/pcm-worklet.js')
 			source = audioContext.createMediaStreamSource(stream!)
 			workletNode = new AudioWorkletNode(audioContext, 'pcm-processor')
@@ -86,7 +67,6 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 				if (socket.readyState === WebSocket.OPEN) socket.send(event.data)
 			}
 			source.connect(workletNode)
-			// Pull the worklet by wiring it to the destination; it writes no output, so this is silent.
 			workletNode.connect(audioContext.destination)
 		}
 
@@ -101,14 +81,10 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 			const isFinal = message.data?.is_final ?? false
 			const text = message.data?.utterance?.text ?? ''
 			if (!text) return
-			// Continuous mode: accumulate finals and re-emit them as one aggregated result on stop().
 			if (isFinal && options.continuous) {
 				aggregator.add(text)
 				return
 			}
-			// Otherwise an interim (only when requested) or a per-utterance final → emit directly.
-			// `result` shape mirrors the built-in engine: (event, bestAlternative, alternatives).
-			// Gladia returns a single hypothesis, so the alternatives list holds just that text.
 			if (!isFinal && !options.interimResults) return
 			emit('result', new Event('result') as SpeechRecognitionEvent, text, [text])
 		}
@@ -147,8 +123,6 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 					socket.onclose = () => {
 						recording = false
 						releaseAudio()
-						// Flush the buffered finals as one aggregated result before 'end' (mirrors WebSpeechEngine).
-						// On abort the buffer was cleared first, so this is a no-op.
 						const aggregated = aggregator.flush()
 						if (aggregated) {
 							emit('result', new Event('result') as SpeechRecognitionEvent, aggregated, [aggregated])
@@ -158,7 +132,6 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 				})
 			} catch (error) {
 				releaseAudio()
-				// Honour the contract: resolve (don't reject) when aborted via the signal.
 				if (error instanceof Error && error.name === 'AbortError') return
 				throw error
 			}
@@ -167,17 +140,13 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 		const stop = (): void => {
 			if (!recording) return
 			recording = false
-			// Stop pushing audio but keep the socket open so trailing finals and the 1000 close
-			// (→ onclose → emit('end')) still arrive.
 			if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'stop_recording' }))
 			stopCapture()
 		}
 
 		const abort = (): void => {
 			recording = false
-			// Discard the buffer so the onclose flush is a no-op — abort emits no final result.
 			aggregator.clear()
-			// Drop the socket immediately; onclose releases the audio graph and emits 'end'.
 			ws?.close()
 			releaseAudio()
 		}
@@ -201,7 +170,6 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 		}
 	}
 
-	// Support is engine-defined: Gladia needs a microphone and a WebSocket, not SpeechRecognition.
 	factory.isSupported = (): boolean => isMediaDevicesSupported() && typeof WebSocket !== 'undefined'
 
 	return factory

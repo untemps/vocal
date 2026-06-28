@@ -36,8 +36,6 @@ const includesEventType = (eventType: string): boolean => Object.values(eventTyp
 const unknownEventTypeMessage = (eventType: string): string =>
 	`Unknown event type "${eventType}". Valid types are: ${Object.values(eventTypes).join(', ')}.`
 
-// Engine-aware: with no argument probes the default Web Speech engine; pass a factory
-// to delegate support detection to a custom backend.
 export const isSupported = (engineFactory: SpeechEngineFactory = WebSpeechEngine): boolean =>
 	engineFactory.isSupported()
 
@@ -48,22 +46,17 @@ export const createVocal = (options?: CreateVocalOptions): VocalInstance => {
 		...vocalOptions,
 	}
 
-	// The core owns the user listener registry; the engine pushes already-shaped events
-	// back through `emit`, which fans them out to every callback registered for the type.
 	const listeners: Record<string, EventHandler[]> = {}
 	let disposed = false
 
 	const emit = ((type: string, ...payload: unknown[]): void => {
 		const handlers = listeners[type]
 		if (!handlers?.length) return
-		// Snapshot so a handler removing itself mid-dispatch cannot skip a sibling.
 		const snapshot = [...handlers]
 		snapshot.forEach((callback) => callback(...payload))
 	}) as SpeechEngineContext['emit']
 
 	const engine = engineFactory({ options: resolvedOptions, emit })
-	// The engine's generic `subscribe`/`unsubscribe` are notifications keyed by type; the core
-	// drives them with its loosely-typed registry callbacks, so narrow to a plain signature here.
 	const subscribe = engine.subscribe as (type: EventType, callback: EventHandler) => void
 	const unsubscribe = engine.unsubscribe as (type: EventType) => void
 
