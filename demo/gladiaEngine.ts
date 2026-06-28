@@ -134,6 +134,17 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 					}
 					socket.onerror = () => {
 						clearAbort()
+						// Pre-open, reject settles start(); mid-session the promise is already resolved,
+						// so surface the failure as an error event instead of swallowing it.
+						if (recording) {
+							emit(
+								'error',
+								Object.assign(new Event('error'), {
+									error: 'network',
+									message: 'Gladia WebSocket error',
+								}) as unknown as SpeechRecognitionErrorEvent
+							)
+						}
 						reject(new Error('Gladia WebSocket error'))
 					}
 					socket.onclose = () => {
