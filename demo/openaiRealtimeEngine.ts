@@ -81,8 +81,6 @@ export const createOpenAIRealtimeEngine = ({
 					} else {
 						emit('result', new Event('result') as SpeechRecognitionEvent, text, [text])
 					}
-					// A final landing inside the stop() flush window extends it, so the trailing
-					// utterance is captured instead of being cut off by the fixed delay.
 					if (flushTimer !== null) {
 						clearTimeout(flushTimer)
 						flushTimer = setTimeout(flushAndEnd, FLUSH_DELAY_MS)
@@ -91,7 +89,6 @@ export const createOpenAIRealtimeEngine = ({
 				}
 				case 'conversation.item.input_audio_transcription.failed':
 				case 'error':
-					// Drop the partial deltas of the failed utterance so they don't bleed into the next one.
 					interim = ''
 					emit(
 						'error',
@@ -126,8 +123,6 @@ export const createOpenAIRealtimeEngine = ({
 		}
 
 		const negotiate = async (token: string, signal?: AbortSignal): Promise<void> => {
-			// Operate on a stable local handle: a connectionstatechange may null the shared pc
-			// mid-negotiation, and the trailing awaits must not dereference null.
 			const peer = new RTCPeerConnection()
 			pc = peer
 			peer.addEventListener('connectionstatechange', () => {
@@ -168,7 +163,6 @@ export const createOpenAIRealtimeEngine = ({
 			if (!sdpResponse.ok) {
 				throw new Error(`OpenAI SDP exchange failed (${sdpResponse.status} ${sdpResponse.statusText})`)
 			}
-			// Bail if the session was torn down (disconnect/abort) while the SDP was in flight.
 			if (pc !== peer) return
 			await peer.setRemoteDescription({ type: 'answer', sdp: await sdpResponse.text() })
 		}
@@ -189,7 +183,6 @@ export const createOpenAIRealtimeEngine = ({
 					return
 				}
 				await negotiate(token, signal)
-				// negotiate() nulls pc if the session was aborted/torn down while connecting.
 				if (signal?.aborted || !pc) {
 					endSession()
 					return

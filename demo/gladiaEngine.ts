@@ -104,8 +104,6 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 					const socket = new WebSocket(url)
 					ws = socket
 					const onAbort = () => {
-						// Settle (don't hang) on abort during the handshake; detach onclose so a
-						// session that never started doesn't emit 'end'. The catch releases audio.
 						socket.onclose = null
 						socket.close()
 						const error = new Error('Aborted')
@@ -134,8 +132,6 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 					}
 					socket.onerror = () => {
 						clearAbort()
-						// Pre-open, reject settles start(); mid-session the promise is already resolved,
-						// so surface the failure as an error event instead of swallowing it.
 						if (recording) {
 							emit(
 								'error',
@@ -148,8 +144,6 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 						reject(new Error('Gladia WebSocket error'))
 					}
 					socket.onclose = () => {
-						// A superseded socket (stop() then start() reused this engine) must not tear
-						// down or feed the new session through the shared closure state.
 						if (ws !== socket) return
 						recording = false
 						releaseAudio()
@@ -172,8 +166,6 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 			recording = false
 			const socket = ws
 			if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'stop_recording' }))
-			// Release audio now (don't wait on the server) and bound the wait for its close so the
-			// socket and the 'end' event can't hang on a stalled server.
 			releaseAudio()
 			if (socket) setTimeout(() => socket.close(), STOP_GRACE_MS)
 		}

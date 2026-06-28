@@ -214,8 +214,6 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 
 	const subscribe = (type: EventType, callback: EventHandler): void => {
 		if (type !== eventTypes.PERMISSION) return
-		// A non-null lastPermissionState implies an active watch (teardown clears both), so
-		// replay the cached state to the late subscriber; ensurePermissionWatch is self-guarding.
 		if (lastPermissionState !== null) callback(makePermissionEvent(lastPermissionState), lastPermissionState)
 		ensurePermissionWatch()
 	}
@@ -230,7 +228,6 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 			const stream = await getUserMediaStream('microphone', { audio: true }, { signal })
 			stream.getTracks().forEach((track) => track.stop())
 			if (signal?.aborted) return
-			// Re-check after the await: cleanup() may have nulled instance while we awaited.
 			if (!instance) return
 			explicitStop = false
 			finalResults = []
