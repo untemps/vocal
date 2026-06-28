@@ -37,10 +37,16 @@ export const createOpenAIRealtimeEngine = ({
 
 		const language = options.lang.split('-')[0] || options.lang
 
-		const endSession = (): void => {
+		const endSession = ({ flush = false }: { flush?: boolean } = {}): void => {
 			if (flushTimer !== null) {
 				clearTimeout(flushTimer)
 				flushTimer = null
+			}
+			if (flush) {
+				const aggregated = aggregator.flush()
+				if (aggregated) {
+					emit('result', new Event('result') as SpeechRecognitionEvent, aggregated, [aggregated])
+				}
 			}
 			stopping = false
 			const wasRecording = recording
@@ -117,7 +123,7 @@ export const createOpenAIRealtimeEngine = ({
 			pc = new RTCPeerConnection()
 			pc.addEventListener('connectionstatechange', () => {
 				if (pc && (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')) {
-					endSession()
+					endSession({ flush: true })
 				}
 			})
 			channel = pc.createDataChannel('oai-events')
@@ -180,14 +186,7 @@ export const createOpenAIRealtimeEngine = ({
 			}
 		}
 
-		const flushAndEnd = (): void => {
-			flushTimer = null
-			const aggregated = aggregator.flush()
-			if (aggregated) {
-				emit('result', new Event('result') as SpeechRecognitionEvent, aggregated, [aggregated])
-			}
-			endSession()
-		}
+		const flushAndEnd = (): void => endSession({ flush: true })
 
 		const stop = (): void => {
 			if (!recording || flushTimer !== null) return
