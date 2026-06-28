@@ -31,6 +31,7 @@ const $btnClearLog 		= document.getElementById('btn-clear-log') as HTMLButtonEle
 // ── State ─────────────────────────────────────────────────────────────────────
 
 let vocal: VocalInstance | null = null
+let engineFactory: SpeechEngineFactory | null = null
 
 const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}
 
@@ -104,8 +105,7 @@ function currentEngineFactory(): SpeechEngineFactory | null {
 }
 
 function isCurrentSupported(): boolean {
-	const factory = currentEngineFactory()
-	return factory ? isVocalSupported(factory) : isVocalSupported()
+	return engineFactory ? isVocalSupported(engineFactory) : isVocalSupported()
 }
 
 function needsMissingKey(): boolean {
@@ -174,8 +174,8 @@ function initVocal() {
 		vocal = null
 	}
 
-	const engine = currentEngineFactory()
-	const supported = engine ? isVocalSupported(engine) : isVocalSupported()
+	engineFactory = currentEngineFactory()
+	const supported = isCurrentSupported()
 	$banner.style.display = supported ? 'none' : 'block'
 	if (!supported) {
 		updateStatus()
@@ -183,7 +183,7 @@ function initVocal() {
 	}
 
 	const options = buildOptions()
-	vocal = createVocal(engine ? { ...options, engine } : options)
+	vocal = createVocal(engineFactory ? { ...options, engine: engineFactory } : options)
 
 	vocal.on('result', (_, best, alts) => {
 		$transcript.textContent = best
