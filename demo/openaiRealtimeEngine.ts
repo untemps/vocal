@@ -77,6 +77,8 @@ export const createOpenAIRealtimeEngine = ({
 				}
 				case 'conversation.item.input_audio_transcription.failed':
 				case 'error':
+					// Drop the partial deltas of the failed utterance so they don't bleed into the next one.
+					interim = ''
 					emit(
 						'error',
 						Object.assign(new Event('error'), {
