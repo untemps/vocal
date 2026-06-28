@@ -101,6 +101,7 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 				}
 				const url = await initSession(signal)
 				await new Promise<void>((resolve, reject) => {
+					let started = false
 					const socket = new WebSocket(url)
 					ws = socket
 					const onAbort = () => {
@@ -117,6 +118,7 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 						startAudio(socket).then(
 							() => {
 								clearAbort()
+								started = true
 								recording = true
 								emit('start', new Event('start'))
 								resolve()
@@ -146,6 +148,11 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 					}
 					socket.onclose = () => {
 						if (ws !== socket) return
+						if (!started) {
+							clearAbort()
+							reject(new Error('Gladia WebSocket closed before opening'))
+							return
+						}
 						recording = false
 						releaseAudio()
 						const aggregated = aggregator.flush()
