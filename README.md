@@ -358,6 +358,17 @@ vocal.stop() // logs: "heard in en-US"
 | **`AbortSignal`** | `start({ signal })` should abort any in-flight setup when the signal fires and **resolve** (not reject) on abort, matching the built-in engine. |
 | **Bundle size** | Engines are plain factory functions and fully tree-shakeable. Keep heavy SDKs in your own module so they are never pulled into the default build — `@untemps/vocal` itself only depends on `@untemps/user-permissions-utils`. |
 
+### Real-world examples
+
+The [`demo/`](./demo) folder wires two real cloud backends behind this seam, each receiving its API key through the factory closure (so the key never travels through `createVocal`'s option bag):
+
+- **[Gladia](./demo/gladiaEngine.ts)** — streams PCM16 over a WebSocket; an [`AudioWorklet`](./demo/public/pcm-worklet.js) converts Float32 → PCM16 off the main thread, and Gladia's partial/final transcripts are mapped onto `result`.
+- **[OpenAI Realtime](./demo/openaiRealtimeEngine.ts)** — connects over WebRTC: it mints a short-lived ephemeral token, negotiates an `RTCPeerConnection`, and reads transcription events off the `oai-events` data channel.
+
+Both acquire the microphone and surface the `permission` event through [`@untemps/user-permissions-utils`](https://github.com/untemps/user-permissions-utils) (shared [`demo/permissionWatch.ts`](./demo/permissionWatch.ts)), exactly like the built-in `WebSpeechEngine`. Run `yarn dev` and pick the engine from the selector.
+
+> These demos keep the API key in the browser for local convenience. In production, mint short-lived credentials server-side (as the OpenAI example's ephemeral token illustrates) and never ship a raw key to the client.
+
 ## Migration from the class-based API (v1.x)
 
 ```js
