@@ -193,7 +193,7 @@ function initVocal() {
 	})
 
 	vocal.on('error', (event) => {
-		log('error', event.error ?? String(event))
+		log('error', [event.error, event.message].filter(Boolean).join(': ') || String(event))
 		updateStatus()
 	})
 

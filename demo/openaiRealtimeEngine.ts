@@ -82,7 +82,8 @@ export const createOpenAIRealtimeEngine = ({
 					emit(
 						'error',
 						Object.assign(new Event('error'), {
-							error: message.error?.message ?? 'OpenAI Realtime error',
+							error: 'network',
+							message: message.error?.message ?? 'OpenAI Realtime error',
 						}) as unknown as SpeechRecognitionErrorEvent
 					)
 					break
