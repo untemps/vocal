@@ -73,7 +73,7 @@ export const createOpenAIRealtimeEngine = ({
 					}
 					break
 				case 'conversation.item.input_audio_transcription.completed': {
-					const text = message.transcript ?? interim
+					const text = message.transcript || interim
 					interim = ''
 					if (!text) break
 					if (options.continuous) {
