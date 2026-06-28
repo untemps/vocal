@@ -131,6 +131,7 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 						if (ws === socket) handleMessage(event)
 					}
 					socket.onerror = () => {
+						if (ws !== socket) return
 						clearAbort()
 						if (recording) {
 							emit(
