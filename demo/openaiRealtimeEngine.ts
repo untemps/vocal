@@ -168,7 +168,8 @@ export const createOpenAIRealtimeEngine = ({
 		}
 
 		const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
-			if (recording) return
+			if (recording && !stopping) return
+			if (recording) endSession({ flush: true })
 			aggregator.clear()
 			interim = ''
 			try {
