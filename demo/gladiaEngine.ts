@@ -1,6 +1,7 @@
 import { getUserMediaStream, isMediaDevicesSupported } from '@untemps/user-permissions-utils'
 import type { SpeechEngineContext, SpeechEngineFactory, SpeechEngineInstance } from '../src/index'
 import { createPermissionWatch } from './permissionWatch'
+import { createTranscriptAggregator } from './transcriptAggregator'
 
 // Custom speech engine for the demo: real-time speech-to-text through Gladia's v2 live API.
 //
@@ -39,6 +40,8 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 
 		// Surfaces the `permission` event, opened lazily on the first subscription.
 		const permission = createPermissionWatch(emit)
+		// In continuous mode, finals are buffered here and flushed as one result on stop().
+		const aggregator = createTranscriptAggregator()
 
 		// Gladia expects an ISO-639 language code; map 'fr-FR' → 'fr' but tolerate a bare code.
 		const language = options.lang.split('-')[0] || options.lang
@@ -96,12 +99,17 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 			}
 			if (message.type !== 'transcript') return
 			const isFinal = message.data?.is_final ?? false
-			// Honour interimResults: drop partials unless the consumer asked for them.
-			if (!isFinal && !options.interimResults) return
 			const text = message.data?.utterance?.text ?? ''
 			if (!text) return
+			// Continuous mode: accumulate finals and re-emit them as one aggregated result on stop().
+			if (isFinal && options.continuous) {
+				aggregator.add(text)
+				return
+			}
+			// Otherwise an interim (only when requested) or a per-utterance final → emit directly.
 			// `result` shape mirrors the built-in engine: (event, bestAlternative, alternatives).
 			// Gladia returns a single hypothesis, so the alternatives list holds just that text.
+			if (!isFinal && !options.interimResults) return
 			emit('result', new Event('result') as SpeechRecognitionEvent, text, [text])
 		}
 
@@ -113,6 +121,7 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 
 		const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
 			if (recording) return
+			aggregator.clear()
 			try {
 				stream = await getUserMediaStream('microphone', { audio: true }, { signal })
 				if (signal?.aborted) {
@@ -138,6 +147,12 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 					socket.onclose = () => {
 						recording = false
 						releaseAudio()
+						// Flush the buffered finals as one aggregated result before 'end' (mirrors WebSpeechEngine).
+						// On abort the buffer was cleared first, so this is a no-op.
+						const aggregated = aggregator.flush()
+						if (aggregated) {
+							emit('result', new Event('result') as SpeechRecognitionEvent, aggregated, [aggregated])
+						}
 						emit('end', new Event('end'))
 					}
 				})
@@ -160,6 +175,8 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 
 		const abort = (): void => {
 			recording = false
+			// Discard the buffer so the onclose flush is a no-op — abort emits no final result.
+			aggregator.clear()
 			// Drop the socket immediately; onclose releases the audio graph and emits 'end'.
 			ws?.close()
 			releaseAudio()

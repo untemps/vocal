@@ -1,6 +1,7 @@
 import { getUserMediaStream, isMediaDevicesSupported } from '@untemps/user-permissions-utils'
 import type { SpeechEngineContext, SpeechEngineFactory, SpeechEngineInstance } from '../src/index'
 import { createPermissionWatch } from './permissionWatch'
+import { createTranscriptAggregator } from './transcriptAggregator'
 
 // Custom speech engine for the demo: real-time transcription through OpenAI's Realtime API
 // over WebRTC — the connection method OpenAI supports from the browser (a raw-key WebSocket
@@ -21,6 +22,9 @@ import { createPermissionWatch } from './permissionWatch'
 
 const CLIENT_SECRETS_URL = '/openai-api/v1/realtime/client_secrets'
 const CALLS_URL = '/openai-api/v1/realtime/calls'
+// Grace period after stop() so the last server-VAD segment can still arrive before the peer
+// connection is torn down.
+const FLUSH_DELAY_MS = 500
 
 interface OpenAIConfig {
 	apiKey: string
@@ -44,14 +48,21 @@ export const createOpenAIRealtimeEngine = ({
 		let stream: MediaStream | null = null
 		let recording = false
 		let interim = '' // accumulated delta text for the in-progress utterance
+		let flushTimer: ReturnType<typeof setTimeout> | null = null
 
 		// Surfaces the `permission` event, opened lazily on the first subscription.
 		const permission = createPermissionWatch(emit)
+		// In continuous mode, finals are buffered here and flushed as one result on stop().
+		const aggregator = createTranscriptAggregator()
 
 		// OpenAI expects an ISO-639 language code; map 'fr-FR' → 'fr' but tolerate a bare code.
 		const language = options.lang.split('-')[0] || options.lang
 
 		const endSession = (): void => {
+			if (flushTimer !== null) {
+				clearTimeout(flushTimer)
+				flushTimer = null
+			}
 			const wasRecording = recording
 			recording = false
 			stream?.getTracks().forEach((track) => track.stop())
@@ -80,8 +91,14 @@ export const createOpenAIRealtimeEngine = ({
 				case 'conversation.item.input_audio_transcription.completed': {
 					const text = message.transcript ?? interim
 					interim = ''
-					// `result` shape mirrors the built-in engine: (event, bestAlternative, alternatives).
-					if (text) emit('result', new Event('result') as SpeechRecognitionEvent, text, [text])
+					if (!text) break
+					// Continuous mode: accumulate finals for one aggregated result on stop(); otherwise
+					// emit per-utterance. `result` shape: (event, bestAlternative, alternatives).
+					if (options.continuous) {
+						aggregator.add(text)
+					} else {
+						emit('result', new Event('result') as SpeechRecognitionEvent, text, [text])
+					}
 					break
 				}
 				case 'conversation.item.input_audio_transcription.failed':
@@ -163,6 +180,8 @@ export const createOpenAIRealtimeEngine = ({
 
 		const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
 			if (recording) return
+			aggregator.clear()
+			interim = ''
 			try {
 				stream = await getUserMediaStream('microphone', { audio: true }, { signal })
 				if (signal?.aborted) {
@@ -185,11 +204,31 @@ export const createOpenAIRealtimeEngine = ({
 			}
 		}
 
-		// Transcription emits results as they arrive, so stop and abort are identical: tear the
-		// peer connection down and (if a session was live) signal 'end'.
-		const stop = (): void => endSession()
-		const abort = (): void => endSession()
+		const flushAndEnd = (): void => {
+			flushTimer = null
+			const aggregated = aggregator.flush()
+			if (aggregated) {
+				emit('result', new Event('result') as SpeechRecognitionEvent, aggregated, [aggregated])
+			}
+			endSession()
+		}
+
+		const stop = (): void => {
+			if (!recording || flushTimer !== null) return
+			// Stop sending audio but keep the data channel open briefly so the last server-VAD
+			// segment can still arrive, then flush the aggregate (continuous) and signal 'end'.
+			stream?.getTracks().forEach((track) => track.stop())
+			flushTimer = setTimeout(flushAndEnd, FLUSH_DELAY_MS)
+		}
+
+		const abort = (): void => {
+			// Discard any buffered finals; end immediately with no aggregated result.
+			aggregator.clear()
+			endSession()
+		}
+
 		const cleanup = (): void => {
+			aggregator.clear()
 			endSession()
 			permission.teardown()
 		}

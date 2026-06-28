@@ -121,9 +121,9 @@ function syncEngineUI() {
 	const cloud = isCloudEngine()
 	$apiKeyField.style.display = cloud ? '' : 'none'
 	$apiKeyNote.style.display = cloud ? '' : 'none'
-	// Cloud engines stream a single hypothesis; these Web Speech-only options don't apply.
+	// Cloud engines return a single hypothesis, so maxAlternatives doesn't apply. `continuous`
+	// does: it toggles aggregated (one result on stop) vs per-utterance results, like WebSpeech.
 	$optMaxAlt.disabled = cloud
-	$optContinuous.disabled = cloud
 }
 
 function updateStatus() {
