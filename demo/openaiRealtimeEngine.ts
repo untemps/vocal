@@ -28,6 +28,7 @@ export const createOpenAIRealtimeEngine = ({
 		let channel: RTCDataChannel | null = null
 		let stream: MediaStream | null = null
 		let recording = false
+		let stopping = false
 		let interim = ''
 		let flushTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -41,6 +42,7 @@ export const createOpenAIRealtimeEngine = ({
 				clearTimeout(flushTimer)
 				flushTimer = null
 			}
+			stopping = false
 			const wasRecording = recording
 			recording = false
 			stream?.getTracks().forEach((track) => track.stop())
@@ -189,6 +191,7 @@ export const createOpenAIRealtimeEngine = ({
 
 		const stop = (): void => {
 			if (!recording || flushTimer !== null) return
+			stopping = true
 			stream?.getTracks().forEach((track) => track.stop())
 			flushTimer = setTimeout(flushAndEnd, FLUSH_DELAY_MS)
 		}
@@ -206,7 +209,7 @@ export const createOpenAIRealtimeEngine = ({
 
 		return {
 			get isRecording() {
-				return recording
+				return recording && !stopping
 			},
 			start,
 			stop,
