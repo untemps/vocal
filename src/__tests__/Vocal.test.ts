@@ -1289,13 +1289,25 @@ describe('Vocal', () => {
 			expect(onEnd).not.toHaveBeenCalled()
 		})
 
-		it('removes the internal end, start, error and result listeners on cleanup', () => {
+		it('removes every native listener from the instance on cleanup', () => {
 			const { vocal, instance } = setup()
 			vocal.cleanup()
-			expect(instance.removeEventListener).toHaveBeenCalledWith('end', expect.any(Function))
-			expect(instance.removeEventListener).toHaveBeenCalledWith('start', expect.any(Function))
-			expect(instance.removeEventListener).toHaveBeenCalledWith('error', expect.any(Function))
-			expect(instance.removeEventListener).toHaveBeenCalledWith('result', expect.any(Function))
+			const nativeTypes = [
+				'end',
+				'start',
+				'error',
+				'result',
+				'audiostart',
+				'audioend',
+				'soundstart',
+				'soundend',
+				'speechstart',
+				'speechend',
+				'nomatch',
+			]
+			nativeTypes.forEach((type) =>
+				expect(instance.removeEventListener).toHaveBeenCalledWith(type, expect.any(Function))
+			)
 		})
 	})
 
