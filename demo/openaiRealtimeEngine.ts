@@ -1,6 +1,6 @@
 import { getUserMediaStream, isMediaDevicesSupported } from '@untemps/user-permissions-utils'
 import type { SpeechEngineContext, SpeechEngineFactory, SpeechEngineInstance } from '../src/index'
-import { createPermissionWatch } from './permissionWatch'
+import { createPermissionWatch } from '../src/permissionWatch'
 import { createTranscriptAggregator } from './transcriptAggregator'
 
 const CLIENT_SECRETS_URL = '/openai-api/v1/realtime/client_secrets'

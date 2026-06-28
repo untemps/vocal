@@ -1,9 +1,4 @@
-import {
-	isMediaDevicesSupported,
-	isPermissionsSupported,
-	watchPermission,
-	getUserMediaStream,
-} from '@untemps/user-permissions-utils'
+import { isMediaDevicesSupported, getUserMediaStream } from '@untemps/user-permissions-utils'
 import {
 	eventTypes,
 	type EventType,
@@ -11,8 +6,7 @@ import {
 	type SpeechEngineFactory,
 	type SpeechEngineInstance,
 } from './types'
-
-type EventHandler = (...args: unknown[]) => void
+import { createPermissionWatch } from './permissionWatch'
 
 const RESTART_THROTTLE_MS = 1000
 const FATAL_ERRORS: ReadonlySet<string> = new Set(['not-allowed', 'service-not-allowed', 'audio-capture'])
@@ -59,9 +53,6 @@ const makeSyntheticResults = (results: SpeechRecognitionResult[]): SpeechRecogni
 	return list
 }
 
-const makePermissionEvent = (state: PermissionState): Event & { state: PermissionState } =>
-	Object.assign(new Event(eventTypes.PERMISSION), { state })
-
 export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContext): SpeechEngineInstance => {
 	const { options, emit } = context
 	const emitRaw = emit as (type: EventType, ...payload: unknown[]) => void
@@ -78,8 +69,6 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 	let restartTimeoutId: ReturnType<typeof setTimeout> | null = null
 	let isRestarting = false
 	let finalResults: SpeechRecognitionResult[] = []
-	let permissionWatchController: AbortController | null = null
-	let lastPermissionState: PermissionState | null = null
 
 	instance.lang = options.lang
 	instance.continuous = options.continuous
@@ -192,36 +181,7 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 	]
 	nativeListeners.forEach(([type, handler]) => instance!.addEventListener(type, handler))
 
-	const ensurePermissionWatch = (): void => {
-		if (permissionWatchController || !isPermissionsSupported()) return
-		const controller = new AbortController()
-		permissionWatchController = controller
-		watchPermission(
-			'microphone',
-			(state) => {
-				lastPermissionState = state
-				emit(eventTypes.PERMISSION, makePermissionEvent(state), state)
-			},
-			{ signal: controller.signal, emitImmediately: true }
-		).catch(() => {})
-	}
-
-	const teardownPermissionWatch = (): void => {
-		permissionWatchController?.abort()
-		permissionWatchController = null
-		lastPermissionState = null
-	}
-
-	const subscribe = (type: EventType, callback: EventHandler): void => {
-		if (type !== eventTypes.PERMISSION) return
-		if (lastPermissionState !== null) callback(makePermissionEvent(lastPermissionState), lastPermissionState)
-		ensurePermissionWatch()
-	}
-
-	const unsubscribe = (type: EventType): void => {
-		if (type !== eventTypes.PERMISSION) return
-		teardownPermissionWatch()
-	}
+	const permission = createPermissionWatch(emit)
 
 	const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
 		try {
@@ -257,7 +217,7 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 
 	const cleanup = (): void => {
 		stop()
-		teardownPermissionWatch()
+		permission.teardown()
 		nativeListeners.forEach(([type, handler]) => instance?.removeEventListener(type, handler))
 		instance = null
 	}
@@ -269,8 +229,8 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 		start,
 		stop,
 		abort,
-		subscribe: subscribe as SpeechEngineInstance['subscribe'],
-		unsubscribe,
+		subscribe: permission.subscribe,
+		unsubscribe: permission.unsubscribe,
 		cleanup,
 	}
 }
