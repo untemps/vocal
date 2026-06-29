@@ -598,7 +598,7 @@ describe('Vocal', () => {
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'second utterance', ['second utterance'])
 		})
 
-		it('does not pass transcript when resultIndex is out of bounds', () => {
+		it('emits a safe empty result shape when resultIndex is out of bounds', () => {
 			const onResult = vi.fn()
 			const { vocal, instance } = setup()
 			vocal.on(eventTypes.RESULT, onResult)
@@ -610,11 +610,10 @@ describe('Vocal', () => {
 				results: [[{ transcript: 'hello', confidence: 0.9 }]],
 			})
 			;(handler as unknown as (e: Event) => void)(event)
-			expect(onResult).toHaveBeenCalledTimes(1)
-			expect(onResult.mock.calls[0]).toHaveLength(1)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), '', [])
 		})
 
-		it('does not pass transcript for RESULT events with empty results', () => {
+		it('emits a safe empty result shape for RESULT events with empty results', () => {
 			const onResult = vi.fn()
 			const { vocal, instance } = setup()
 			vocal.on(eventTypes.RESULT, onResult)
@@ -623,8 +622,7 @@ describe('Vocal', () => {
 			)!
 			const event = Object.assign(new Event(eventTypes.RESULT), { results: [] })
 			;(handler as unknown as (e: Event) => void)(event)
-			expect(onResult).toHaveBeenCalledTimes(1)
-			expect(onResult.mock.calls[0]).toHaveLength(1)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), '', [])
 		})
 
 		it('stacks multiple listeners for the same event type', () => {

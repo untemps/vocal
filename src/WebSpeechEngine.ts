@@ -128,7 +128,7 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 			return
 		}
 		if (!current) {
-			emitRaw(eventTypes.RESULT, speechEvent)
+			emit(eventTypes.RESULT, speechEvent, '', [])
 			return
 		}
 		const alternatives = Array.from(current)
