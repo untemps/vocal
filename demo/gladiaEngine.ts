@@ -1,7 +1,4 @@
-import { getUserMediaStream, isMediaDevicesSupported } from '@untemps/user-permissions-utils'
-import type { SpeechEngineContext, SpeechEngineFactory, SpeechEngineInstance } from '../src/index'
-import { createPermissionWatch } from '../src/permissionWatch'
-import { createTranscriptAggregator } from './transcriptAggregator'
+import { createEngine, type EngineConnectContext, type EngineSession, type SpeechEngineFactory } from '../src/index'
 
 const GLADIA_INIT_URL = '/gladia-api/v2/live'
 const SAMPLE_RATE = 16000
@@ -16,97 +13,84 @@ interface GladiaMessage {
 	data?: { is_final?: boolean; utterance?: { text?: string } }
 }
 
-export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactory => {
-	const factory = ({ options, emit }: SpeechEngineContext): SpeechEngineInstance => {
-		let ws: WebSocket | null = null
-		let audioContext: AudioContext | null = null
-		let workletNode: AudioWorkletNode | null = null
-		let source: MediaStreamAudioSourceNode | null = null
-		let stream: MediaStream | null = null
-		let recording = false
+export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactory =>
+	createEngine({
+		isSupported: () => typeof WebSocket !== 'undefined',
+		connect: async ({
+			stream,
+			signal,
+			language,
+			options,
+			emitTranscript,
+			emitError,
+			end,
+		}: EngineConnectContext): Promise<EngineSession> => {
+			let audioContext: AudioContext | null = null
+			let workletNode: AudioWorkletNode | null = null
+			let source: MediaStreamAudioSourceNode | null = null
+			let closed = false
 
-		const permission = createPermissionWatch(emit)
-		const aggregator = createTranscriptAggregator()
-
-		const language = options.lang.split('-')[0] || options.lang
-
-		const releaseAudio = (): void => {
-			workletNode?.disconnect()
-			source?.disconnect()
-			stream?.getTracks().forEach((track) => track.stop())
-			audioContext?.close()
-			workletNode = source = stream = audioContext = null
-		}
-
-		const initSession = async (signal?: AbortSignal): Promise<string> => {
-			const response = await fetch(GLADIA_INIT_URL, {
-				method: 'POST',
-				signal,
-				headers: { 'x-gladia-key': apiKey, 'content-type': 'application/json' },
-				body: JSON.stringify({
-					encoding: 'wav/pcm',
-					sample_rate: SAMPLE_RATE,
-					bit_depth: 16,
-					channels: 1,
-					language_config: { languages: [language] },
-					messages_config: { receive_partial_transcripts: options.interimResults },
-				}),
-			})
-			if (!response.ok) {
-				throw new Error(`Gladia init failed (${response.status} ${response.statusText})`)
+			const releaseAudio = (): void => {
+				workletNode?.disconnect()
+				source?.disconnect()
+				stream.getTracks().forEach((track) => track.stop())
+				audioContext?.close()
+				workletNode = source = audioContext = null
 			}
-			const { url } = (await response.json()) as { url: string }
-			return url
-		}
 
-		const startAudio = async (socket: WebSocket): Promise<void> => {
-			audioContext = new AudioContext({ sampleRate: SAMPLE_RATE })
-			await audioContext.audioWorklet.addModule('/pcm-worklet.js')
-			source = audioContext.createMediaStreamSource(stream!)
-			workletNode = new AudioWorkletNode(audioContext, 'pcm-processor')
-			workletNode.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
-				if (socket.readyState === WebSocket.OPEN) socket.send(event.data)
+			const initSession = async (): Promise<string> => {
+				const response = await fetch(GLADIA_INIT_URL, {
+					method: 'POST',
+					signal,
+					headers: { 'x-gladia-key': apiKey, 'content-type': 'application/json' },
+					body: JSON.stringify({
+						encoding: 'wav/pcm',
+						sample_rate: SAMPLE_RATE,
+						bit_depth: 16,
+						channels: 1,
+						language_config: { languages: [language] },
+						messages_config: { receive_partial_transcripts: options.interimResults },
+					}),
+				})
+				if (!response.ok) {
+					throw new Error(`Gladia init failed (${response.status} ${response.statusText})`)
+				}
+				const { url } = (await response.json()) as { url: string }
+				return url
 			}
-			source.connect(workletNode)
-			workletNode.connect(audioContext.destination)
-		}
 
-		const handleMessage = (event: MessageEvent): void => {
-			let message: GladiaMessage
-			try {
-				message = JSON.parse(event.data as string)
-			} catch {
-				return
+			const startAudio = async (socket: WebSocket): Promise<void> => {
+				audioContext = new AudioContext({ sampleRate: SAMPLE_RATE })
+				await audioContext.audioWorklet.addModule('/pcm-worklet.js')
+				source = audioContext.createMediaStreamSource(stream)
+				workletNode = new AudioWorkletNode(audioContext, 'pcm-processor')
+				workletNode.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
+					if (socket.readyState === WebSocket.OPEN) socket.send(event.data)
+				}
+				source.connect(workletNode)
+				workletNode.connect(audioContext.destination)
 			}
-			if (message.type !== 'transcript') return
-			const isFinal = message.data?.is_final ?? false
-			const text = message.data?.utterance?.text ?? ''
-			if (!text) return
-			if (isFinal && options.continuous) {
-				aggregator.add(text)
-				return
-			}
-			if (!isFinal && !options.interimResults) return
-			emit('result', new Event('result') as SpeechRecognitionEvent, text, [text])
-		}
 
-		const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
-			if (recording) return
-			aggregator.clear()
-			try {
-				stream = await getUserMediaStream('microphone', { audio: true }, { signal })
-				if (signal?.aborted) {
-					releaseAudio()
+			const handleMessage = (event: MessageEvent): void => {
+				if (closed) return
+				let message: GladiaMessage
+				try {
+					message = JSON.parse(event.data as string)
+				} catch {
 					return
 				}
-				const url = await initSession(signal)
-				await new Promise<void>((resolve, reject) => {
-					let started = false
-					const socket = new WebSocket(url)
-					ws = socket
+				if (message.type !== 'transcript') return
+				emitTranscript(message.data?.utterance?.text ?? '', { isFinal: message.data?.is_final ?? false })
+			}
+
+			try {
+				const url = await initSession()
+				const socket = await new Promise<WebSocket>((resolve, reject) => {
+					let opened = false
+					const ws = new WebSocket(url)
 					const onAbort = () => {
-						socket.onclose = null
-						socket.close()
+						ws.onclose = null
+						ws.close()
 						const error = new Error('Aborted')
 						error.name = 'AbortError'
 						reject(error)
@@ -114,14 +98,12 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 					if (signal?.aborted) return onAbort()
 					signal?.addEventListener('abort', onAbort, { once: true })
 					const clearAbort = () => signal?.removeEventListener('abort', onAbort)
-					socket.onopen = () => {
-						startAudio(socket).then(
+					ws.onopen = () => {
+						startAudio(ws).then(
 							() => {
 								clearAbort()
-								started = true
-								recording = true
-								emit('start', new Event('start'))
-								resolve()
+								opened = true
+								resolve(ws)
 							},
 							(error) => {
 								clearAbort()
@@ -129,82 +111,45 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 							}
 						)
 					}
-					socket.onmessage = (event) => {
-						if (ws === socket) handleMessage(event)
-					}
-					socket.onerror = () => {
-						if (ws !== socket) return
+					ws.onmessage = handleMessage
+					ws.onerror = () => {
 						clearAbort()
-						if (recording) {
-							emit(
-								'error',
-								Object.assign(new Event('error'), {
-									error: 'network',
-									message: 'Gladia WebSocket error',
-								}) as unknown as SpeechRecognitionErrorEvent
-							)
-						}
+						if (opened && !closed) emitError('Gladia WebSocket error')
 						reject(new Error('Gladia WebSocket error'))
 					}
-					socket.onclose = () => {
-						if (ws !== socket) return
-						if (!started) {
+					ws.onclose = () => {
+						if (!opened) {
 							clearAbort()
 							reject(new Error('Gladia WebSocket closed before opening'))
 							return
 						}
-						recording = false
+						if (closed) return
+						closed = true
 						releaseAudio()
-						const aggregated = aggregator.flush()
-						if (aggregated) {
-							emit('result', new Event('result') as SpeechRecognitionEvent, aggregated, [aggregated])
-						}
-						emit('end', new Event('end'))
+						end({ flush: true })
 					}
 				})
+
+				return {
+					stop() {
+						if (closed) return
+						if (socket.readyState === WebSocket.OPEN) {
+							socket.send(JSON.stringify({ type: 'stop_recording' }))
+						}
+						releaseAudio()
+						setTimeout(() => socket.close(), STOP_GRACE_MS)
+					},
+					abort() {
+						if (closed) return
+						closed = true
+						socket.onclose = null
+						socket.close()
+						releaseAudio()
+					},
+				}
 			} catch (error) {
 				releaseAudio()
-				if (error instanceof Error && error.name === 'AbortError') return
 				throw error
 			}
-		}
-
-		const stop = (): void => {
-			if (!recording) return
-			recording = false
-			const socket = ws
-			if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'stop_recording' }))
-			releaseAudio()
-			if (socket) setTimeout(() => socket.close(), STOP_GRACE_MS)
-		}
-
-		const abort = (): void => {
-			recording = false
-			aggregator.clear()
-			ws?.close()
-			releaseAudio()
-		}
-
-		const cleanup = (): void => {
-			abort()
-			permission.teardown()
-			ws = null
-		}
-
-		return {
-			get isRecording() {
-				return recording
-			},
-			start,
-			stop,
-			abort,
-			subscribe: permission.subscribe,
-			unsubscribe: permission.unsubscribe,
-			cleanup,
-		}
-	}
-
-	factory.isSupported = (): boolean => isMediaDevicesSupported() && typeof WebSocket !== 'undefined'
-
-	return factory
-}
+		},
+	})
