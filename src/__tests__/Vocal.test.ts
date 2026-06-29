@@ -922,11 +922,17 @@ describe('Vocal', () => {
 			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
 		})
 
-		it('resets isRecording when the engine throws on restart', async () => {
+		it('emits a synthetic end and flushes buffered results when the engine throws on restart', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const { vocal, instance } = setup({ continuous: true })
 			await vocal.start()
 
+			const onEnd = vi.fn()
+			const onResult = vi.fn()
+			vocal.on(eventTypes.END, onEnd)
+			vocal.on(eventTypes.RESULT, onResult)
+
+			instance.say('buffered')
 			fireEnd(instance)
 			;(instance.start as unknown as { mockImplementationOnce: (fn: () => void) => void }).mockImplementationOnce(
 				() => {
@@ -937,6 +943,8 @@ describe('Vocal', () => {
 			await vi.advanceTimersByTimeAsync(1000)
 
 			expect(vocal.isRecording).toBe(false)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'buffered', ['buffered'])
+			expect(onEnd).toHaveBeenCalledTimes(1)
 		})
 	})
 

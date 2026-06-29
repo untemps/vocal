@@ -99,6 +99,8 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 		} catch {
 			isRestarting = false
 			isRecording = false
+			emitAggregatedResult()
+			emit(eventTypes.END, new Event(eventTypes.END))
 		}
 	}
 
