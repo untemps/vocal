@@ -6,7 +6,6 @@ import {
 	type SpeechEngineFactory,
 	type SpeechEngineInstance,
 } from './types'
-import { createPermissionWatch } from './permissionWatch'
 
 const RESTART_THROTTLE_MS = 1000
 const FATAL_ERRORS: ReadonlySet<string> = new Set(['not-allowed', 'service-not-allowed', 'audio-capture'])
@@ -181,8 +180,6 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 	]
 	nativeListeners.forEach(([type, handler]) => instance!.addEventListener(type, handler))
 
-	const permission = createPermissionWatch(emit)
-
 	const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
 		try {
 			const stream = await getUserMediaStream('microphone', { audio: true }, { signal })
@@ -217,7 +214,6 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 
 	const cleanup = (): void => {
 		stop()
-		permission.teardown()
 		nativeListeners.forEach(([type, handler]) => instance?.removeEventListener(type, handler))
 		instance = null
 	}
@@ -229,8 +225,6 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 		start,
 		stop,
 		abort,
-		subscribe: permission.subscribe,
-		unsubscribe: permission.unsubscribe,
 		cleanup,
 	}
 }

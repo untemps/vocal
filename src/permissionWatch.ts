@@ -1,7 +1,7 @@
 import { isPermissionsSupported, watchPermission } from '@untemps/user-permissions-utils'
-import { eventTypes, type EventType, type SpeechEngineContext, type SpeechEngineInstance } from './types'
+import { eventTypes, type SpeechEngineContext } from './types'
 
-type EventHandler = (...args: unknown[]) => void
+type PermissionListener = (...args: unknown[]) => void
 
 const makePermissionEvent = (state: PermissionState): Event & { state: PermissionState } =>
 	Object.assign(new Event(eventTypes.PERMISSION), { state })
@@ -30,20 +30,10 @@ export const createPermissionWatch = (emit: SpeechEngineContext['emit']) => {
 		lastState = null
 	}
 
-	const subscribe = (type: EventType, callback: EventHandler): void => {
-		if (type !== eventTypes.PERMISSION) return
+	const subscribe = (callback: PermissionListener): void => {
 		if (lastState !== null) callback(makePermissionEvent(lastState), lastState)
 		ensure()
 	}
 
-	const unsubscribe = (type: EventType): void => {
-		if (type !== eventTypes.PERMISSION) return
-		teardown()
-	}
-
-	return {
-		subscribe: subscribe as SpeechEngineInstance['subscribe'],
-		unsubscribe,
-		teardown,
-	}
+	return { subscribe, teardown }
 }

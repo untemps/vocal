@@ -1,5 +1,5 @@
 import { createVocal, isSupported, eventTypes, type VocalInstance } from '../Vocal'
-import type { EventType, SpeechEngineContext, SpeechEngineFactory, SpeechEngineInstance } from '../types'
+import type { SpeechEngineContext, SpeechEngineFactory, SpeechEngineInstance } from '../types'
 import * as userPermissionsUtils from '@untemps/user-permissions-utils'
 
 type MockFn = {
@@ -1318,8 +1318,6 @@ describe('Vocal', () => {
 				stop: 0,
 				abort: 0,
 				cleanup: 0,
-				subscribed: [] as EventType[],
-				unsubscribed: [] as EventType[],
 			}
 			let recording = false
 			let context: SpeechEngineContext | undefined
@@ -1340,12 +1338,6 @@ describe('Vocal', () => {
 					abort() {
 						recording = false
 						calls.abort++
-					},
-					subscribe(type: EventType) {
-						calls.subscribed.push(type)
-					},
-					unsubscribe(type: EventType) {
-						calls.unsubscribed.push(type)
 					},
 					cleanup() {
 						recording = false
@@ -1408,14 +1400,16 @@ describe('Vocal', () => {
 			errorSpy.mockRestore()
 		})
 
-		it('notifies the engine when listeners are added and removed', () => {
-			const { factory, calls } = createMockEngine()
+		it('drives the core permission watch regardless of the engine', () => {
+			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, onChange) => {
+				onChange('granted')
+				return Promise.resolve()
+			})
+			const { factory } = createMockEngine()
 			const vocal = createVocal({ engine: factory })
-			const callback = vi.fn()
-			vocal.on(eventTypes.START, callback)
-			expect(calls.subscribed).toContain(eventTypes.START)
-			vocal.off(eventTypes.START, callback)
-			expect(calls.unsubscribed).toContain(eventTypes.START)
+			const onPermission = vi.fn()
+			vocal.on(eventTypes.PERMISSION, onPermission)
+			expect(onPermission).toHaveBeenCalledWith(expect.any(Event), 'granted')
 		})
 
 		it('delegates abort and cleanup to the engine', () => {

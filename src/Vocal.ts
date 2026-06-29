@@ -1,4 +1,5 @@
 import { WebSpeechEngine } from './WebSpeechEngine'
+import { createPermissionWatch } from './permissionWatch'
 import {
 	eventTypes,
 	type CreateVocalOptions,
@@ -63,8 +64,7 @@ export const createVocal = (options?: CreateVocalOptions): VocalInstance => {
 	}) as SpeechEngineContext['emit']
 
 	const engine = engineFactory({ options: resolvedOptions, emit })
-	const subscribe = engine.subscribe as (type: EventType, callback: EventHandler) => void
-	const unsubscribe = engine.unsubscribe as (type: EventType) => void
+	const permission = createPermissionWatch(emit)
 
 	const on = (eventType: string, callback: EventHandler): void => {
 		if (!includesEventType(eventType)) {
@@ -74,7 +74,7 @@ export const createVocal = (options?: CreateVocalOptions): VocalInstance => {
 
 		if (!listeners[eventType]) listeners[eventType] = []
 		listeners[eventType].push(callback)
-		subscribe(eventType as EventType, callback)
+		if (eventType === eventTypes.PERMISSION) permission.subscribe(callback)
 	}
 
 	const off = (eventType: string, callback?: EventHandler): void => {
@@ -93,14 +93,15 @@ export const createVocal = (options?: CreateVocalOptions): VocalInstance => {
 			delete listeners[eventType]
 		}
 
-		if (!listeners[eventType]?.length) {
-			unsubscribe(eventType as EventType)
+		if (eventType === eventTypes.PERMISSION && !listeners[eventType]?.length) {
+			permission.teardown()
 		}
 	}
 
 	const cleanup = (): void => {
 		if (disposed) return
 		disposed = true
+		permission.teardown()
 		engine.cleanup()
 		Object.keys(listeners).forEach((key) => delete listeners[key])
 	}

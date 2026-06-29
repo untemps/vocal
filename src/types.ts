@@ -100,8 +100,6 @@ export interface SpeechEngineInstance {
 	start(options?: { signal?: AbortSignal }): Promise<void>
 	stop(): void
 	abort(): void
-	subscribe<T extends EventType>(type: T, callback: EventHandlerFor<T>): void
-	unsubscribe(type: EventType): void
 	cleanup(): void
 }
 
