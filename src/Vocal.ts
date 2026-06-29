@@ -102,8 +102,8 @@ export const createVocal = (options?: CreateVocalOptions): VocalInstance => {
 		if (disposed) return
 		disposed = true
 		permission.teardown()
-		engine.cleanup()
 		Object.keys(listeners).forEach((key) => delete listeners[key])
+		engine.cleanup()
 	}
 
 	return {

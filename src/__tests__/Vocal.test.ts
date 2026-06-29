@@ -1286,12 +1286,23 @@ describe('Vocal', () => {
 			vocal.on(eventTypes.START, onStart)
 			vocal.on(eventTypes.END, onEnd)
 			vocal.cleanup()
-			// cleanup() runs a final stop() (emitting a trailing 'end'); assert nothing flows afterwards.
-			onStart.mockClear()
-			onEnd.mockClear()
 			instance.start()
 			instance.stop()
 			expect(onStart).not.toHaveBeenCalled()
+			expect(onEnd).not.toHaveBeenCalled()
+		})
+
+		it('does not flush a buffered result or trailing end to listeners during cleanup', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+			const onResult = vi.fn()
+			const onEnd = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+			vocal.on(eventTypes.END, onEnd)
+			instance.say('buffered')
+			vocal.cleanup()
+			expect(onResult).not.toHaveBeenCalled()
 			expect(onEnd).not.toHaveBeenCalled()
 		})
 
