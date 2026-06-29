@@ -169,8 +169,9 @@ The observation is **best-effort**: it never displays a prompt itself (only `sta
 | `isSupported`     | function | With no argument, returns `true` when both the `SpeechRecognition` Web API and `navigator.mediaDevices.getUserMedia` are available (the Permissions API is **not** required — best-effort). Pass a `SpeechEngineFactory` to probe a [custom engine](#custom-speech-engines) instead. Call it (it is **not** a getter). |
 | `eventTypes`      | const    | Map of valid event type strings (e.g. `eventTypes.RESULT === 'result'`).                                            |
 | `WebSpeechEngine` | function | The built-in Web Speech engine factory — the default backend used when no `engine` is supplied. See [Custom speech engines](#custom-speech-engines). |
+| `createEngine`    | function | Scaffold that builds a `SpeechEngineFactory` from a small backend (a support probe plus a `connect()` that drives a transport). See [Authoring an engine with `createEngine`](#authoring-an-engine-with-createengine). |
 
-The TypeScript types `SpeechEngineFactory`, `SpeechEngineInstance`, `SpeechEngineContext` and `CreateVocalOptions` are exported for engine authors.
+The TypeScript types `SpeechEngineFactory`, `SpeechEngineInstance`, `SpeechEngineContext`, `CreateVocalOptions`, `EngineBackend`, `EngineSession` and `EngineConnectContext` are exported for engine authors.
 
 ## Instance getter
 
@@ -253,7 +254,7 @@ Stops recognition, removes all registered listeners, and releases the internal `
 
 Responsibilities are split cleanly:
 
-- **`createVocal` (core)** owns everything engine-agnostic: the user listener registry, event fan-out, the `isRecording` getter and lifecycle delegation.
+- **`createVocal` (core)** owns everything engine-agnostic: the user listener registry, event fan-out, the `isRecording` getter, lifecycle delegation, and the microphone `permission` watch (opened lazily on the first `permission` listener, independent of the engine).
 - **The engine** owns the backend: it produces events and pushes them — already shaped to the public handler signatures — back to the core through `context.emit`.
 
 ```ts
@@ -279,7 +280,7 @@ interface SpeechEngineContext {
   readonly options: Required<VocalOptions>
   // Push an event to every user listener registered for `type`. The payload must already match
   // the public handler shape — (event, bestAlternative, alternatives) for `result`,
-  // (event, state) for `permission`, (event) for everything else.
+  // (event) for everything else.
   emit<T extends EventType>(type: T, ...payload: Parameters<EventHandlerFor<T>>): void
 }
 
@@ -288,11 +289,6 @@ interface SpeechEngineInstance {
   start(options?: { signal?: AbortSignal }): Promise<void>
   stop(): void
   abort(): void
-  // Called by the core when a user listener is added/removed for `type`. The added callback is
-  // passed so the engine can replay sticky state to it (the built-in engine replays the cached
-  // permission state to late subscribers). Most engines only react to specific types.
-  subscribe<T extends EventType>(type: T, callback: EventHandlerFor<T>): void
-  unsubscribe(type: EventType): void
   cleanup(): void
 }
 
@@ -332,8 +328,6 @@ const echoEngine: SpeechEngineFactory = ({ options, emit }) => {
       recording = false
       emit('end', new Event('end'))
     },
-    subscribe() {}, // no sticky state to replay
-    unsubscribe() {},
     cleanup() {
       recording = false
     },
@@ -353,10 +347,50 @@ vocal.stop() // logs: "heard in en-US"
 | --- | --- |
 | **Result shape** | Emit `result` as `(event, bestAlternative, alternatives)` — `bestAlternative` is the single best transcript, `alternatives` every transcript. To support lib.dom-style consumers that read `event.results.item(i)`, also shape `event.results` (the built-in engine does — see [Aggregated result on stop](#aggregated-result-on-stop)). |
 | **`continuous` / `interimResults`** | Read them from `context.options` and map interim/final results onto `result` emits. The built-in engine forwards interims, defers intermediate finals, and flushes a single aggregated `result` on `stop()`. A custom engine may keep that behaviour or emit per-utterance — the `(event, best, alternatives)` shape is the only hard requirement. |
-| **Permission** | The built-in engine surfaces microphone permission through the `permission` event (via `@untemps/user-permissions-utils`), opened lazily on the first `permission` subscription — that is what `subscribe`/`unsubscribe` are for. An engine that manages capture itself can ignore them (no-op) and never emit `permission`, or wire its own source. |
+| **Permission** | Nothing — the microphone `permission` event is owned by the core (`createVocal`), opened lazily on the first `permission` listener and surfaced through `@untemps/user-permissions-utils`, independently of which engine is plugged in. An engine never emits `permission`. |
 | **`grammars` / `maxAlternatives`** | Engine-specific. Honour what your backend supports and ignore the rest — don't throw on unsupported options. |
 | **`AbortSignal`** | `start({ signal })` should abort any in-flight setup when the signal fires and **resolve** (not reject) on abort, matching the built-in engine. |
 | **Bundle size** | Engines are plain factory functions and fully tree-shakeable. Keep heavy SDKs in your own module so they are never pulled into the default build — `@untemps/vocal` itself only depends on `@untemps/user-permissions-utils`. |
+
+### Authoring an engine with `createEngine`
+
+Engines that stream the microphone to an asynchronous session (a WebSocket, WebRTC, a worker, a local server) share a lot of plumbing: mic acquisition with `AbortSignal` handling, reducing the BCP-47 `lang` to its primary subtag (`fr-FR` → `fr`), buffering final transcripts in `continuous` mode and flushing them as a single `result`, the `interimResults` gate, and the `start`/`result`/`end`/`error` lifecycle. **`createEngine`** owns all of it and leaves a backend to implement only its transport:
+
+```ts
+import { createEngine, type EngineBackend } from '@untemps/vocal'
+
+const backend: EngineBackend = {
+  isSupported: () => typeof WebSocket !== 'undefined',
+  // Called once the core has acquired the mic stream and the start was not aborted.
+  // Resolve a session when the transport is live; reject otherwise (use an AbortError to stay silent on abort).
+  async connect({ stream, signal, language, options, emitTranscript, emitError, end }) {
+    const socket = new WebSocket(`wss://example.com/stt?lang=${language}`)
+    // … pipe `stream` to the socket and parse messages, then:
+    //   emitTranscript(text, { isFinal }) → the base applies the continuous/interim policy
+    //   emitError(message)                → emits a well-formed `error` event
+    //   end({ flush: true })              → flush the aggregated transcript and emit `end`
+    return {
+      stop() {
+        /* graceful close; call end({ flush: true }) once the transport has drained */
+      },
+      abort() {
+        /* immediate teardown of the transport and the stream */
+      },
+    }
+  },
+}
+
+const myEngine = createEngine(backend) // a ready SpeechEngineFactory
+```
+
+Once `connect()` is called, the backend owns the `stream` and tears its tracks down as part of its own teardown. `myEngine.isSupported()` is `navigator.mediaDevices.getUserMedia` **and** the backend's optional `isSupported()`. Both [demo engines](#real-world-examples) are built this way.
+
+| Backend member | Responsibility |
+| --- | --- |
+| `isSupported?()` | Optional transport probe, AND-ed with the core's `mediaDevices` check. Defaults to supported when omitted. |
+| `connect(ctx)` | Establish the transport from `ctx.stream`; resolve an `{ stop, abort }` session, or reject (an `AbortError` is swallowed). Report through `ctx.emitTranscript` / `ctx.emitError` / `ctx.end`. |
+| `session.stop()` | Graceful stop; call `ctx.end({ flush: true })` once the transport has drained the final transcript. |
+| `session.abort()` | Immediate teardown of the transport and the `stream`; the core then emits `end`. |
 
 ### Real-world examples
 
@@ -365,7 +399,7 @@ The [`demo/`](./demo) folder wires two real cloud backends behind this seam, eac
 - **[Gladia](./demo/gladiaEngine.ts)** — streams PCM16 over a WebSocket; an [`AudioWorklet`](./demo/public/pcm-worklet.js) converts Float32 → PCM16 off the main thread, and Gladia's partial/final transcripts are mapped onto `result`.
 - **[OpenAI Realtime](./demo/openaiRealtimeEngine.ts)** — connects over WebRTC: it mints a short-lived ephemeral token, negotiates an `RTCPeerConnection`, and reads transcription events off the `oai-events` data channel.
 
-Both acquire the microphone and surface the `permission` event through [`@untemps/user-permissions-utils`](https://github.com/untemps/user-permissions-utils) (shared [`demo/permissionWatch.ts`](./demo/permissionWatch.ts)), exactly like the built-in `WebSpeechEngine`. Run `yarn dev` and pick the engine from the selector.
+Both are built on the shared [`createEngine`](#authoring-an-engine-with-createengine) scaffold, so each file is just its transport — the microphone acquisition, the core-owned `permission` event, transcript aggregation, and the `continuous`/`interimResults` policy all come from the base. Run `yarn dev` and pick the engine from the selector.
 
 > These demos keep the API key in the browser for local convenience. In production, mint short-lived credentials server-side (as the OpenAI example's ephemeral token illustrates) and never ship a raw key to the client.
 
