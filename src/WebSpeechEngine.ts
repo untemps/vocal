@@ -113,6 +113,7 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 			.map((result) => pickBestAlternative(Array.from(result)).transcript)
 			.join(' ')
 			.trim()
+		if (!joinedTranscript) return
 		const event = Object.assign(new Event(eventTypes.RESULT), {
 			resultIndex: 0,
 			results: makeSyntheticResults(results),

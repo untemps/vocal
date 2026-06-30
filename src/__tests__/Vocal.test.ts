@@ -1007,6 +1007,20 @@ describe('Vocal', () => {
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello world', ['hello world'])
 		})
 
+		it('does not emit an aggregated result when the buffered finals are blank', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+
+			instance.say(' ', undefined, { isFinal: true })
+			vocal.stop()
+
+			expect(onResult).not.toHaveBeenCalled()
+		})
+
 		it('still propagates interim results to user listeners in continuous mode', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const { vocal, instance } = setup({ continuous: true, interimResults: true })
