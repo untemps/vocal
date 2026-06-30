@@ -31,7 +31,13 @@ export const createPermissionWatch = (emit: SpeechEngineContext['emit']) => {
 	}
 
 	const subscribe = (callback: PermissionListener): void => {
-		if (lastState !== null) callback(makePermissionEvent(lastState), lastState)
+		if (lastState !== null) {
+			try {
+				callback(makePermissionEvent(lastState), lastState)
+			} catch (error) {
+				console.error(error)
+			}
+		}
 		ensure()
 	}
 

@@ -333,6 +333,20 @@ describe('Vocal', () => {
 			expect(onPermission).toHaveBeenNthCalledWith(2, expect.any(Event), 'denied')
 		})
 
+		it('isolates an exception thrown by a permission handler during the immediate replay', () => {
+			grantOnWatch('granted')
+			const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+			const { vocal } = setup()
+			vocal.on(eventTypes.PERMISSION, vi.fn())
+			const thrower = vi.fn(() => {
+				throw new Error('handler boom')
+			})
+			expect(() => vocal.on(eventTypes.PERMISSION, thrower)).not.toThrow()
+			expect(thrower).toHaveBeenCalledWith(expect.any(Event), 'granted')
+			expect(consoleError).toHaveBeenCalled()
+			consoleError.mockRestore()
+		})
+
 		it('continues to emit transitions during an active session', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			let emit!: (state: PermissionState) => void
