@@ -159,6 +159,7 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 			isRestarting = false
 			return
 		}
+		if (explicitStop) return
 		emit(eventTypes.START, event)
 	}
 

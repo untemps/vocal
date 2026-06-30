@@ -724,6 +724,12 @@ describe('Vocal', () => {
 				.forEach(([, handler]) => handler(Object.assign(new Event('error'), { error }) as unknown as Event))
 		}
 
+		const fireStart = (instance: MockInstance) => {
+			;(instance.addEventListener.mock.calls as [string, EventListener][])
+				.filter(([type]) => type === 'start')
+				.forEach(([, handler]) => handler(new Event('start')))
+		}
+
 		beforeEach(() => {
 			vi.useFakeTimers()
 		})
@@ -909,6 +915,25 @@ describe('Vocal', () => {
 			vocal.stop()
 
 			expect(onEnd).toHaveBeenCalledTimes(1)
+		})
+
+		it('does not emit start after an explicit stop interrupts a scheduled restart', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+
+			const onStart = vi.fn()
+			vocal.on(eventTypes.START, onStart)
+			;(instance.start as unknown as { mockImplementationOnce: (fn: () => void) => void }).mockImplementationOnce(
+				() => {}
+			)
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(1000)
+
+			vocal.stop()
+			fireStart(instance)
+
+			expect(onStart).not.toHaveBeenCalled()
 		})
 
 		it('keeps isRecording true during the restart window', async () => {
