@@ -70,7 +70,7 @@ vocal.stop()
 // Abort recording entirely
 vocal.abort()
 
-// Remove all attached listeners and release the internal SpeechRecognition instance
+// Remove all attached listeners and tear down the underlying engine
 vocal.cleanup()
 ```
 
@@ -246,7 +246,7 @@ Throws if `eventType` is not a valid `EventType`.
 
 ### `cleanup()`
 
-Stops recognition, removes all registered listeners, and releases the internal `SpeechRecognition` instance. The returned `VocalInstance` cannot be reused after `cleanup()`.
+Stops recognition, removes all registered listeners, tears down the microphone `permission` watch, and tears down the underlying engine. The returned `VocalInstance` cannot be reused after `cleanup()`.
 
 ## Custom speech engines
 
