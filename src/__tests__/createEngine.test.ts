@@ -133,6 +133,56 @@ describe('createEngine', () => {
 			expect(typesOf(events)).not.toContain('start')
 		})
 
+		it('stops the stream and skips connect when disposed before connecting', async () => {
+			const { stream, stop } = makeStream()
+			let releaseStream!: () => void
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockReturnValue(
+				new Promise<MediaStream>((resolve) => {
+					releaseStream = () => resolve(stream)
+				})
+			)
+			const connect = vi.fn()
+			const backend: EngineBackend = { connect }
+			const { context, events } = makeContext()
+			const instance = createEngine(backend)(context)
+			const pending = instance.start()
+			instance.cleanup()
+			releaseStream()
+			await pending
+			expect(connect).not.toHaveBeenCalled()
+			expect(stop).toHaveBeenCalled()
+			expect(instance.isRecording).toBe(false)
+			expect(typesOf(events)).not.toContain('start')
+		})
+
+		it('aborts the session and skips start when disposed during connect', async () => {
+			const { stream } = makeStream()
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValue(stream)
+			const session: EngineSession = { stop: vi.fn(), abort: vi.fn() }
+			let release!: () => void
+			let connectEntered!: () => void
+			const entered = new Promise<void>((resolve) => {
+				connectEntered = resolve
+			})
+			const connect = vi.fn(() => {
+				connectEntered()
+				return new Promise<EngineSession>((resolve) => {
+					release = () => resolve(session)
+				})
+			})
+			const backend: EngineBackend = { connect }
+			const { context, events } = makeContext()
+			const instance = createEngine(backend)(context)
+			const pending = instance.start()
+			await entered
+			instance.cleanup()
+			release()
+			await pending
+			expect(session.abort).toHaveBeenCalled()
+			expect(instance.isRecording).toBe(false)
+			expect(typesOf(events)).not.toContain('start')
+		})
+
 		it('stops the stream and rethrows when connect fails', async () => {
 			const { stream, stop } = makeStream()
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValue(stream)

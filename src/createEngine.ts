@@ -36,6 +36,7 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 		let recording = false
 		let stopping = false
 		let starting = false
+		let disposed = false
 
 		const emitResult = (text: string): void => {
 			emit(eventTypes.RESULT, new Event(eventTypes.RESULT) as SpeechRecognitionEvent, text, [text])
@@ -83,7 +84,7 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 			let stream: MediaStream | undefined
 			try {
 				stream = await getUserMediaStream('microphone', { audio: true }, { signal })
-				if (signal?.aborted) {
+				if (signal?.aborted || disposed) {
 					stream.getTracks().forEach((track) => track.stop())
 					return
 				}
@@ -96,7 +97,7 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 					emitError,
 					end,
 				})
-				if (signal?.aborted) {
+				if (signal?.aborted || disposed) {
 					next.abort()
 					return
 				}
@@ -124,6 +125,7 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 		}
 
 		const cleanup = (): void => {
+			disposed = true
 			recording = false
 			stopping = false
 			aggregator.clear()
