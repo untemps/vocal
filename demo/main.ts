@@ -32,6 +32,7 @@ const $btnClearLog 		= document.getElementById('btn-clear-log') as HTMLButtonEle
 
 let vocal: VocalInstance | null = null
 let engineFactory: SpeechEngineFactory | null = null
+let started = false
 
 const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}
 
@@ -129,9 +130,9 @@ function updateStatus() {
 		setBadge($recording, false)
 	}
 
-	$btnStart.disabled   = !vocal || vocal.isRecording || needsMissingKey()
+	$btnStart.disabled   = !vocal || started || needsMissingKey()
 	$btnStop.disabled    = !vocal || !vocal.isRecording
-	$btnAbort.disabled   = !vocal || !vocal.isRecording
+	$btnAbort.disabled   = !vocal || !started
 	$btnCleanup.disabled = !vocal
 }
 
@@ -173,6 +174,7 @@ function initVocal() {
 		vocal.cleanup()
 		vocal = null
 	}
+	started = false
 
 	engineFactory = currentEngineFactory()
 	const supported = isCurrentSupported()
@@ -204,8 +206,8 @@ function initVocal() {
 	})
 
 	vocal.on('nomatch',     logEvent('nomatch'))
-	vocal.on('start', logEvent('start'))
-	vocal.on('end',   logEvent('end'))
+	vocal.on('start', () => { started = true; log('start'); updateStatus() })
+	vocal.on('end',   () => { started = false; log('end'); updateStatus() })
 	vocal.on('speechstart', logEvent('speechstart'))
 	vocal.on('speechend',   logEvent('speechend'))
 
