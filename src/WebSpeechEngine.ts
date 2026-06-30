@@ -123,9 +123,7 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 
 	const handleResult = (event: Event): void => {
 		const speechEvent = event as SpeechRecognitionEvent
-		const results = speechEvent.results
-		const hasCurrent = results?.length > 0 && speechEvent.resultIndex < results.length
-		const current = hasCurrent ? results[speechEvent.resultIndex] : undefined
+		const current = speechEvent.results?.[speechEvent.resultIndex]
 		if (options.continuous && current?.isFinal) {
 			finalResults.push(makeSyntheticResult(Array.from(current)))
 			return
