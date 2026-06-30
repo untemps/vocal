@@ -2,7 +2,7 @@ import { createEngine, type EngineConnectContext, type EngineSession, type Speec
 
 const CLIENT_SECRETS_URL = '/openai-api/v1/realtime/client_secrets'
 const CALLS_URL = '/openai-api/v1/realtime/calls'
-const FLUSH_DELAY_MS = 500
+const STOP_GRACE_MS = 2000
 
 interface OpenAIConfig {
 	apiKey: string
@@ -75,10 +75,7 @@ export const createOpenAIRealtimeEngine = ({
 						const text = message.transcript || interim
 						interim = ''
 						emitTranscript(text, { isFinal: true })
-						if (flushTimer !== null) {
-							clearTimeout(flushTimer)
-							flushTimer = setTimeout(() => finish({ flush: true }), FLUSH_DELAY_MS)
-						}
+						if (flushTimer !== null) finish({ flush: true })
 						break
 					}
 					case 'conversation.item.input_audio_transcription.failed':
@@ -158,7 +155,7 @@ export const createOpenAIRealtimeEngine = ({
 					stop() {
 						if (done) return
 						stream.getTracks().forEach((track) => track.stop())
-						flushTimer = setTimeout(() => finish({ flush: true }), FLUSH_DELAY_MS)
+						flushTimer = setTimeout(() => finish({ flush: true }), STOP_GRACE_MS)
 					},
 					abort() {
 						if (done) return
