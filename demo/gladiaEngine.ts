@@ -107,6 +107,8 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 							},
 							(error) => {
 								clearAbort()
+								ws.onclose = null
+								ws.close()
 								reject(error)
 							}
 						)
