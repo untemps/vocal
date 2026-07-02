@@ -862,6 +862,28 @@ describe('Vocal', () => {
 			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
 		})
 
+		it('discards the buffer and emits end when abort interrupts a scheduled restart', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			const onEnd = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+			vocal.on(eventTypes.END, onEnd)
+
+			instance.say('hello')
+			fireEnd(instance)
+			;(instance.abort as unknown as { mockImplementationOnce: (fn: () => void) => void }).mockImplementationOnce(
+				() => {}
+			)
+			vocal.abort()
+
+			expect(onResult).not.toHaveBeenCalled()
+			expect(onEnd).toHaveBeenCalledTimes(1)
+			expect(vocal.isRecording).toBe(false)
+		})
+
 		it('disables auto-restart on not-allowed error', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const { vocal, instance } = setup({ continuous: true })

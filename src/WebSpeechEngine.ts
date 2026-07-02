@@ -218,8 +218,14 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 	const abort = (): void => {
 		if (!instance) return
 		explicitStop = true
+		const restartPending = restartTimeoutId !== null
 		clearRestartTimeout()
 		finalResults = []
+		if (restartPending) {
+			isRecording = false
+			emit(eventTypes.END, new Event(eventTypes.END))
+			return
+		}
 		instance.abort()
 		isRecording = false
 	}
