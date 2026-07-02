@@ -61,11 +61,7 @@ export const eventTypes = {
 
 export type EventType = (typeof eventTypes)[keyof typeof eventTypes]
 
-export type ResultEventHandler = (
-	event: SpeechRecognitionEvent,
-	bestAlternative: string,
-	alternatives: string[]
-) => void
+export type ResultEventHandler = (event: SpeechRecognitionEvent, result: string, alternatives: string[]) => void
 export type ErrorEventHandler = (event: SpeechRecognitionErrorEvent) => void
 export type PermissionEventHandler = (event: Event & { state: PermissionState }, state: PermissionState) => void
 export type GenericEventHandler = (event: Event) => void
