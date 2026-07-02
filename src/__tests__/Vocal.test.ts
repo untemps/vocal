@@ -1008,6 +1008,25 @@ describe('Vocal', () => {
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'buffered', ['buffered'])
 			expect(onEnd).toHaveBeenCalledTimes(1)
 		})
+
+		it('does not re-arm auto-restart after the engine throws on restart', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+			;(instance.start as unknown as { mockImplementationOnce: (fn: () => void) => void }).mockImplementationOnce(
+				() => {
+					throw new Error('InvalidStateError')
+				}
+			)
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(1000)
+			const startCallsAfterThrow = (instance.start as MockFn).mock.calls.length
+
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(startCallsAfterThrow)
+		})
 	})
 
 	describe('aggregated result on stop()', () => {

@@ -97,6 +97,7 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 			instance!.start()
 			lastStartedAt = Date.now()
 		} catch {
+			explicitStop = true
 			isRestarting = false
 			isRecording = false
 			emitAggregatedResult()
