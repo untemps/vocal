@@ -313,6 +313,17 @@ describe('createEngine', () => {
 			expect(lastOf(events, 'result')).toEqual([expect.any(Event), 'hello', ['hello']])
 		})
 
+		it('shapes the result event with a lib.dom results list', async () => {
+			const { instance, ctx, events } = setupEngine({ continuous: false })
+			await instance.start()
+			ctx().emitTranscript('hello', { isFinal: true })
+			const event = lastOf(events, 'result')![0] as SpeechRecognitionEvent
+			expect(event.resultIndex).toBe(0)
+			expect(event.results.length).toBe(1)
+			expect(event.results.item(0).isFinal).toBe(true)
+			expect(event.results.item(0).item(0).transcript).toBe('hello')
+		})
+
 		it('aggregates final transcripts in continuous mode and flushes them on end', async () => {
 			const { instance, ctx, events } = setupEngine({ continuous: true })
 			await instance.start()

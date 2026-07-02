@@ -39,8 +39,18 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 		let disposed = false
 		let cancelStart = false
 
+		const makeResultEvent = (text: string): SpeechRecognitionEvent => {
+			const alternative = { transcript: text, confidence: 1 } as SpeechRecognitionAlternative
+			const result = [alternative] as unknown as SpeechRecognitionResult & SpeechRecognitionAlternative[]
+			Object.defineProperty(result, 'isFinal', { value: true })
+			Object.defineProperty(result, 'item', { value: (index: number) => result[index] })
+			const results = [result] as unknown as SpeechRecognitionResultList & SpeechRecognitionResult[]
+			Object.defineProperty(results, 'item', { value: (index: number) => results[index] })
+			return Object.assign(new Event(eventTypes.RESULT), { resultIndex: 0, results }) as SpeechRecognitionEvent
+		}
+
 		const emitResult = (text: string): void => {
-			emit(eventTypes.RESULT, new Event(eventTypes.RESULT) as SpeechRecognitionEvent, text, [text])
+			emit(eventTypes.RESULT, makeResultEvent(text), text, [text])
 		}
 
 		const emitTranscript = (text: string, { isFinal }: { isFinal: boolean }): void => {
