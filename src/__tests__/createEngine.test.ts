@@ -353,6 +353,14 @@ describe('createEngine', () => {
 			expect(lastOf(events, 'result')).toEqual([expect.any(Event), 'partial', ['partial']])
 		})
 
+		it('reports isFinal false on the interim result event', async () => {
+			const { instance, ctx, events } = setupEngine({ interimResults: true })
+			await instance.start()
+			ctx().emitTranscript('partial', { isFinal: false })
+			const event = lastOf(events, 'result')![0] as SpeechRecognitionEvent
+			expect(event.results.item(0).isFinal).toBe(false)
+		})
+
 		it('ignores an empty transcript', async () => {
 			const { instance, ctx, events } = setupEngine()
 			await instance.start()

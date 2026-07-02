@@ -40,18 +40,18 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 		let cancelStart = false
 		let epoch = 0
 
-		const makeResultEvent = (text: string): SpeechRecognitionEvent => {
+		const makeResultEvent = (text: string, isFinal: boolean): SpeechRecognitionEvent => {
 			const alternative = { transcript: text, confidence: 1 } as SpeechRecognitionAlternative
 			const result = [alternative] as unknown as SpeechRecognitionResult & SpeechRecognitionAlternative[]
-			Object.defineProperty(result, 'isFinal', { value: true })
+			Object.defineProperty(result, 'isFinal', { value: isFinal })
 			Object.defineProperty(result, 'item', { value: (index: number) => result[index] })
 			const results = [result] as unknown as SpeechRecognitionResultList & SpeechRecognitionResult[]
 			Object.defineProperty(results, 'item', { value: (index: number) => results[index] })
 			return Object.assign(new Event(eventTypes.RESULT), { resultIndex: 0, results }) as SpeechRecognitionEvent
 		}
 
-		const emitResult = (text: string): void => {
-			emit(eventTypes.RESULT, makeResultEvent(text), text, [text])
+		const emitResult = (text: string, isFinal: boolean): void => {
+			emit(eventTypes.RESULT, makeResultEvent(text, isFinal), text, [text])
 		}
 
 		const emitTranscript = (text: string, { isFinal }: { isFinal: boolean }): void => {
@@ -61,7 +61,7 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 				return
 			}
 			if (!isFinal && !options.interimResults) return
-			emitResult(text)
+			emitResult(text, isFinal)
 			if (isFinal) abort()
 		}
 
@@ -79,7 +79,7 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 			session = null
 			if (flush) {
 				const aggregated = aggregator.flush()
-				if (aggregated) emitResult(aggregated)
+				if (aggregated) emitResult(aggregated, true)
 			} else {
 				aggregator.clear()
 			}
