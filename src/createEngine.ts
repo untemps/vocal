@@ -37,6 +37,7 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 		let stopping = false
 		let starting = false
 		let disposed = false
+		let cancelStart = false
 
 		const emitResult = (text: string): void => {
 			emit(eventTypes.RESULT, new Event(eventTypes.RESULT) as SpeechRecognitionEvent, text, [text])
@@ -84,7 +85,7 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 			let stream: MediaStream | undefined
 			try {
 				stream = await getUserMediaStream('microphone', { audio: true }, { signal })
-				if (signal?.aborted || disposed) {
+				if (signal?.aborted || disposed || cancelStart) {
 					stream.getTracks().forEach((track) => track.stop())
 					return
 				}
@@ -97,7 +98,7 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 					emitError,
 					end,
 				})
-				if (signal?.aborted || disposed) {
+				if (signal?.aborted || disposed || cancelStart) {
 					next.abort()
 					return
 				}
@@ -110,16 +111,25 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 				throw error
 			} finally {
 				starting = false
+				cancelStart = false
 			}
 		}
 
 		const stop = (): void => {
+			if (starting) {
+				cancelStart = true
+				return
+			}
 			if (!recording || stopping) return
 			stopping = true
 			session!.stop()
 		}
 
 		const abort = (): void => {
+			if (starting) {
+				cancelStart = true
+				return
+			}
 			session?.abort()
 			end()
 		}

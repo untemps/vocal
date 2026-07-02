@@ -183,6 +183,78 @@ describe('createEngine', () => {
 			expect(typesOf(events)).not.toContain('start')
 		})
 
+		it('cancels the in-flight start on abort before connecting', async () => {
+			const { stream, stop } = makeStream()
+			let releaseStream!: () => void
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockReturnValue(
+				new Promise<MediaStream>((resolve) => {
+					releaseStream = () => resolve(stream)
+				})
+			)
+			const connect = vi.fn()
+			const backend: EngineBackend = { connect }
+			const { context, events } = makeContext()
+			const instance = createEngine(backend)(context)
+			const pending = instance.start()
+			instance.abort()
+			releaseStream()
+			await pending
+			expect(connect).not.toHaveBeenCalled()
+			expect(stop).toHaveBeenCalled()
+			expect(instance.isRecording).toBe(false)
+			expect(typesOf(events)).not.toContain('start')
+		})
+
+		it('cancels the in-flight start on abort during connect', async () => {
+			const { stream } = makeStream()
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValue(stream)
+			const session: EngineSession = { stop: vi.fn(), abort: vi.fn() }
+			let release!: () => void
+			let connectEntered!: () => void
+			const entered = new Promise<void>((resolve) => {
+				connectEntered = resolve
+			})
+			const connect = vi.fn(() => {
+				connectEntered()
+				return new Promise<EngineSession>((resolve) => {
+					release = () => resolve(session)
+				})
+			})
+			const backend: EngineBackend = { connect }
+			const { context, events } = makeContext()
+			const instance = createEngine(backend)(context)
+			const pending = instance.start()
+			await entered
+			instance.abort()
+			release()
+			await pending
+			expect(session.abort).toHaveBeenCalled()
+			expect(instance.isRecording).toBe(false)
+			expect(typesOf(events)).not.toContain('start')
+		})
+
+		it('cancels the in-flight start on stop before connecting', async () => {
+			const { stream, stop } = makeStream()
+			let releaseStream!: () => void
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockReturnValue(
+				new Promise<MediaStream>((resolve) => {
+					releaseStream = () => resolve(stream)
+				})
+			)
+			const connect = vi.fn()
+			const backend: EngineBackend = { connect }
+			const { context, events } = makeContext()
+			const instance = createEngine(backend)(context)
+			const pending = instance.start()
+			instance.stop()
+			releaseStream()
+			await pending
+			expect(connect).not.toHaveBeenCalled()
+			expect(stop).toHaveBeenCalled()
+			expect(instance.isRecording).toBe(false)
+			expect(typesOf(events)).not.toContain('start')
+		})
+
 		it('stops the stream and rethrows when connect fails', async () => {
 			const { stream, stop } = makeStream()
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValue(stream)
