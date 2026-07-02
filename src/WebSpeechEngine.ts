@@ -183,12 +183,12 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 	nativeListeners.forEach(([type, handler]) => instance!.addEventListener(type, handler))
 
 	const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
+		explicitStop = false
 		try {
 			const stream = await getUserMediaStream('microphone', { audio: true }, { signal })
 			stream.getTracks().forEach((track) => track.stop())
-			if (signal?.aborted) return
 			if (!instance) return
-			explicitStop = false
+			if (signal?.aborted || explicitStop) return
 			finalResults = []
 			instance.start()
 			isRecording = true
