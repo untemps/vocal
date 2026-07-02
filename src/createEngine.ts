@@ -61,6 +61,7 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 			}
 			if (!isFinal && !options.interimResults) return
 			emitResult(text)
+			if (isFinal) abort()
 		}
 
 		const emitError = (message: string, error = 'network'): void => {

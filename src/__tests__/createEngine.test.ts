@@ -306,11 +306,15 @@ describe('createEngine', () => {
 	})
 
 	describe('transcripts', () => {
-		it('emits a final transcript as a result in non-continuous mode', async () => {
-			const { instance, ctx, events } = setupEngine({ continuous: false })
+		it('emits a final transcript as a result and ends the session in non-continuous mode', async () => {
+			const { instance, session, ctx, events } = setupEngine({ continuous: false })
 			await instance.start()
 			ctx().emitTranscript('hello', { isFinal: true })
 			expect(lastOf(events, 'result')).toEqual([expect.any(Event), 'hello', ['hello']])
+			expect(session.abort).toHaveBeenCalled()
+			expect(instance.isRecording).toBe(false)
+			const types = typesOf(events)
+			expect(types.indexOf('result')).toBeLessThan(types.indexOf('end'))
 		})
 
 		it('shapes the result event with a lib.dom results list', async () => {
