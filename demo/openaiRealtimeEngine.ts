@@ -79,9 +79,13 @@ export const createOpenAIRealtimeEngine = ({
 						break
 					}
 					case 'conversation.item.input_audio_transcription.failed':
+						interim = ''
+						emitError(message.error?.message ?? 'OpenAI Realtime error')
+						break
 					case 'error':
 						interim = ''
 						emitError(message.error?.message ?? 'OpenAI Realtime error')
+						finish({ flush: true })
 						break
 				}
 			}
