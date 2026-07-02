@@ -464,6 +464,33 @@ describe('createEngine', () => {
 			expect(session.abort).not.toHaveBeenCalled()
 		})
 
+		it('drops callbacks from a superseded session', async () => {
+			const { stream } = makeStream()
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValue(stream)
+			const contexts: EngineConnectContext[] = []
+			const session: EngineSession = { stop: vi.fn(), abort: vi.fn() }
+			const connect = vi.fn(async (ctx: EngineConnectContext): Promise<EngineSession> => {
+				contexts.push(ctx)
+				return session
+			})
+			const backend: EngineBackend = { connect }
+			const { context, events } = makeContext({ continuous: true })
+			const instance = createEngine(backend)(context)
+			await instance.start()
+			instance.stop()
+			await instance.start()
+			const stale = contexts[0]
+			const endsBefore = countOf(events, 'end')
+			stale.end({ flush: true })
+			stale.emitError('late')
+			stale.emitTranscript('ghost', { isFinal: true })
+			expect(countOf(events, 'end')).toBe(endsBefore)
+			expect(countOf(events, 'error')).toBe(0)
+			expect(instance.isRecording).toBe(true)
+			contexts[1].end({ flush: true })
+			expect(typesOf(events)).not.toContain('result')
+		})
+
 		it('flushes the pending transcript and restarts during the stop window', async () => {
 			const { instance, session, connect, ctx, events } = setupEngine({ continuous: true })
 			await instance.start()

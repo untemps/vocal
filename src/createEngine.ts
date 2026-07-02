@@ -38,6 +38,7 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 		let starting = false
 		let disposed = false
 		let cancelStart = false
+		let epoch = 0
 
 		const makeResultEvent = (text: string): SpeechRecognitionEvent => {
 			const alternative = { transcript: text, confidence: 1 } as SpeechRecognitionAlternative
@@ -87,6 +88,7 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 
 		const start = async ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => {
 			if (starting || (recording && !stopping)) return
+			const sessionEpoch = ++epoch
 			if (recording) {
 				session!.abort()
 				end({ flush: true })
@@ -105,9 +107,18 @@ export const createEngine = (backend: EngineBackend): SpeechEngineFactory => {
 					signal,
 					language,
 					options,
-					emitTranscript,
-					emitError,
-					end,
+					emitTranscript: (text, transcriptOptions) => {
+						if (sessionEpoch !== epoch) return
+						emitTranscript(text, transcriptOptions)
+					},
+					emitError: (message, error) => {
+						if (sessionEpoch !== epoch) return
+						emitError(message, error)
+					},
+					end: (endOptions) => {
+						if (sessionEpoch !== epoch) return
+						end(endOptions)
+					},
 				})
 				if (signal?.aborted || disposed || cancelStart) {
 					next.abort()
