@@ -26,6 +26,9 @@ package-lock.json
 .idea/
 *.iml
 
+# VSCode
+.vscode/
+
 # Jest
 coverage/
 __snapshots__/
