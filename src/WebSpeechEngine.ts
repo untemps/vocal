@@ -201,6 +201,7 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 	}
 
 	const stop = (): void => {
+		if (!instance) return
 		explicitStop = true
 		const restartPending = restartTimeoutId !== null
 		clearRestartTimeout()
@@ -210,19 +211,21 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 			emit(eventTypes.END, new Event(eventTypes.END))
 			return
 		}
-		instance!.stop()
+		instance.stop()
 		isRecording = false
 	}
 
 	const abort = (): void => {
+		if (!instance) return
 		explicitStop = true
 		clearRestartTimeout()
 		finalResults = []
-		instance!.abort()
+		instance.abort()
 		isRecording = false
 	}
 
 	const cleanup = (): void => {
+		if (!instance) return
 		stop()
 		nativeListeners.forEach(([type, handler]) => instance?.removeEventListener(type, handler))
 		instance = null
