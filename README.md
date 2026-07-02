@@ -240,7 +240,7 @@ Stops recognition, removes all registered listeners, tears down the microphone `
 
 ## Custom speech engines
 
-`createVocal()` is backend-agnostic. By default it drives the browser's Web Speech API through the built-in **`WebSpeechEngine`** factory, but you can pass your own `engine` to target a different backend — an on-device model (Vosk, whisper.cpp, `transformers.js`) or a cloud STT service (Deepgram, Google Cloud Speech-to-Text, Azure, OpenAI). This is the seam consumers such as [`@untemps/react-vocal`](https://github.com/untemps/react-vocal) build on, and it brings speech recognition to browsers where `SpeechRecognition` is missing (e.g. Firefox).
+`createVocal()` is backend-agnostic. By default it drives the browser's Web Speech API through the built-in **`WebSpeechEngine`** factory, but you can pass your own `engine` to target a different backend — an on-device model (Vosk, whisper.cpp, `transformers.js`) or a cloud STT service (Deepgram, Google Cloud Speech-to-Text, Azure, OpenAI). It also brings speech recognition to browsers where `SpeechRecognition` is missing (e.g. Firefox).
 
 Responsibilities are split cleanly:
 
