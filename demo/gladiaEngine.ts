@@ -60,6 +60,7 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 			}
 
 			const startAudio = async (socket: WebSocket): Promise<void> => {
+				await audioContext!.resume()
 				await audioContext!.audioWorklet.addModule('/pcm-worklet.js')
 				source = audioContext!.createMediaStreamSource(stream)
 				workletNode = new AudioWorkletNode(audioContext!, 'pcm-processor')
