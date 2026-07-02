@@ -8,22 +8,12 @@ Functional wrapper around the SpeechRecognition Web API
 
 ## Requirements
 
-- A modern browser exposing the `SpeechRecognition` Web API (see [browser support](#browser-support) below). The library is browser-only — it cannot run on the server.
+- A modern browser — the library is browser-only and cannot run on the server.
+- **Microphone access** through `navigator.mediaDevices.getUserMedia`. This is the baseline requirement: every built-in engine acquires the microphone before recognition starts.
+- The **`SpeechRecognition` Web API** — required only by the built-in default engine (`WebSpeechEngine`). A [custom engine](#custom-speech-engines) (an on-device model or a cloud STT service) does not need it, so Vocal can bring recognition to browsers without `SpeechRecognition` such as Firefox, where `isSupported()` with no argument returns `false` but a custom engine's factory can be probed instead.
 - **TypeScript ≥ 6.0** for full type resolution. The published declarations rely on `SpeechRecognitionEvent` and `SpeechRecognitionErrorEvent` shipped by `lib.dom` starting with TypeScript 6.0. If you target an older TypeScript release, install [`@types/dom-speech-recognition`](https://www.npmjs.com/package/@types/dom-speech-recognition) to provide the missing ambient declarations.
 
-### Browser support
-
-| Browser | Desktop  | Mobile (iOS) | Mobile (Android) |
-| ------- | -------- | ------------ | ---------------- |
-| Chrome  | ✅ 25+   | ✅ 121+      | ✅ 25+           |
-| Edge    | ✅ 79+   | ✅ 121+      | ✅ 79+           |
-| Safari  | ✅ 14.1+ | ✅ 14.5+     | —                |
-| Opera   | ✅ 27+   | ⚠️ partial   | ✅ 27+           |
-| Firefox | ❌       | ❌           | ❌               |
-
-Firefox does not implement the Web Speech `SpeechRecognition` API natively. `isSupported()` returns `false` there. Refer to [caniuse.com](https://caniuse.com/?search=SpeechRecognition) for the most up-to-date matrix.
-
-Vendor-prefixed globals (`webkitSpeechRecognition`, `mozSpeechRecognition`, `msSpeechRecognition`, and the matching `*SpeechGrammarList` constructors) are detected transparently — consumers do not need to handle them themselves.
+For the built-in Web Speech engine, vendor-prefixed globals (`webkitSpeechRecognition`, `mozSpeechRecognition`, `msSpeechRecognition`, and the matching `*SpeechGrammarList` constructors) are detected transparently — consumers do not need to handle them themselves. See [caniuse.com](https://caniuse.com/?search=SpeechRecognition) for the current `SpeechRecognition` browser-support matrix.
 
 ## Installation
 
