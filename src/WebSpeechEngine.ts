@@ -89,7 +89,7 @@ export const WebSpeechEngine: SpeechEngineFactory = (context: SpeechEngineContex
 		isRestarting = false
 	}
 
-	const shouldAutoRestart = (): boolean => !!instance && !explicitStop && instance.continuous
+	const shouldAutoRestart = (): boolean => !!instance && !explicitStop && instance.continuous && isRecording
 
 	const restart = (): void => {
 		restartTimeoutId = null

@@ -862,6 +862,27 @@ describe('Vocal', () => {
 			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
 		})
 
+		it('does not restart when a stray end lands while a start is in flight', async () => {
+			let resolveStream!: (stream: MediaStream) => void
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockImplementationOnce(
+				() =>
+					new Promise<MediaStream>((resolve) => {
+						resolveStream = resolve
+					})
+			)
+			const { vocal, instance } = setup({ continuous: true })
+			const startCallsBefore = (instance.start as MockFn).mock.calls.length
+
+			const startPromise = vocal.start()
+			fireEnd(instance)
+			resolveStream(mockStream)
+			await startPromise
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(startCallsBefore + 1)
+			expect(vocal.isRecording).toBe(true)
+		})
+
 		it('discards the buffer and emits end when abort interrupts a scheduled restart', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const { vocal, instance } = setup({ continuous: true })
