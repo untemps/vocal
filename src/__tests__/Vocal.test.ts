@@ -1027,6 +1027,27 @@ describe('Vocal', () => {
 
 			expect((instance.start as MockFn).mock.calls.length).toBe(startCallsAfterThrow)
 		})
+
+		it('flushes buffered results and emits end when stop interrupts a scheduled restart', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			const onEnd = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+			vocal.on(eventTypes.END, onEnd)
+
+			instance.say('hello')
+			fireEnd(instance)
+			;(instance.stop as unknown as { mockImplementationOnce: (fn: () => void) => void }).mockImplementationOnce(
+				() => {}
+			)
+			vocal.stop()
+
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello', ['hello'])
+			expect(onEnd).toHaveBeenCalledTimes(1)
+		})
 	})
 
 	describe('aggregated result on stop()', () => {
