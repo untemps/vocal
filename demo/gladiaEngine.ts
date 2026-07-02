@@ -38,14 +38,14 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 				workletNode = source = audioContext = null
 			}
 
-			const initSession = async (): Promise<string> => {
+			const initSession = async (sampleRate: number): Promise<string> => {
 				const response = await fetch(GLADIA_INIT_URL, {
 					method: 'POST',
 					signal,
 					headers: { 'x-gladia-key': apiKey, 'content-type': 'application/json' },
 					body: JSON.stringify({
 						encoding: 'wav/pcm',
-						sample_rate: SAMPLE_RATE,
+						sample_rate: sampleRate,
 						bit_depth: 16,
 						channels: 1,
 						language_config: { languages: [language] },
@@ -60,15 +60,14 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 			}
 
 			const startAudio = async (socket: WebSocket): Promise<void> => {
-				audioContext = new AudioContext({ sampleRate: SAMPLE_RATE })
-				await audioContext.audioWorklet.addModule('/pcm-worklet.js')
-				source = audioContext.createMediaStreamSource(stream)
-				workletNode = new AudioWorkletNode(audioContext, 'pcm-processor')
+				await audioContext!.audioWorklet.addModule('/pcm-worklet.js')
+				source = audioContext!.createMediaStreamSource(stream)
+				workletNode = new AudioWorkletNode(audioContext!, 'pcm-processor')
 				workletNode.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
 					if (socket.readyState === WebSocket.OPEN) socket.send(event.data)
 				}
 				source.connect(workletNode)
-				workletNode.connect(audioContext.destination)
+				workletNode.connect(audioContext!.destination)
 			}
 
 			const handleMessage = (event: MessageEvent): void => {
@@ -84,7 +83,8 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 			}
 
 			try {
-				const url = await initSession()
+				audioContext = new AudioContext({ sampleRate: SAMPLE_RATE })
+				const url = await initSession(audioContext.sampleRate)
 				const socket = await new Promise<WebSocket>((resolve, reject) => {
 					let opened = false
 					const ws = new WebSocket(url)
