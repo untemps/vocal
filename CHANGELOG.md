@@ -1,3 +1,10 @@
+## [2.3.2](https://github.com/untemps/vocal/compare/v2.3.1...v2.3.2) (2026-07-04)
+
+
+### Bug Fixes
+
+* Guard the starting flag against superseded start() activations ([#139](https://github.com/untemps/vocal/issues/139)) ([6ac05b4](https://github.com/untemps/vocal/commit/6ac05b4e17d6cb56b9dc35d7072d959e3fa3a55f))
+
 ## [2.3.1](https://github.com/untemps/vocal/compare/v2.3.0...v2.3.1) (2026-07-04)
 
 
