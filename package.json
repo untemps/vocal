@@ -63,6 +63,9 @@
 	"dependencies": {
 		"@untemps/user-permissions-utils": "^2.2.3"
 	},
+	"resolutions": {
+		"@semantic-release/github": "^12.0.9"
+	},
 	"peerDependencies": {
 		"typescript": ">=6.0.0"
 	},
