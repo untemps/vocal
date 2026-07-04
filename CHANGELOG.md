@@ -1,3 +1,5 @@
+## [2.3.4](https://github.com/untemps/vocal/compare/v2.3.3...v2.3.4) (2026-07-04)
+
 ## [2.3.3](https://github.com/untemps/vocal/compare/v2.3.2...v2.3.3) (2026-07-04)
 
 
