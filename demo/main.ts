@@ -36,6 +36,7 @@ let started = false
 // True while start() is in flight (mic acquisition + cloud handshake), before the 'start' event.
 // Cloud engines make this window multi-second, so abort() must stay reachable to cancel it.
 let starting = false
+let startEpoch = 0
 
 const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}
 
@@ -179,6 +180,7 @@ function initVocal() {
 	}
 	started = false
 	starting = false
+	startEpoch++
 
 	engineFactory = currentEngineFactory()
 	const supported = isCurrentSupported()
@@ -257,6 +259,7 @@ $optEngine.addEventListener('change', () => {
 
 $btnStart.addEventListener('click', async () => {
 	if (!vocal) return
+	const myEpoch = ++startEpoch
 	starting = true
 	updateStatus()
 	try {
@@ -264,7 +267,7 @@ $btnStart.addEventListener('click', async () => {
 	} catch (e) {
 		log('error', String(e))
 	} finally {
-		starting = false
+		if (myEpoch === startEpoch) starting = false
 	}
 	updateStatus()
 })
