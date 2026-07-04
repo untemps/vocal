@@ -1,3 +1,10 @@
+## [2.3.1](https://github.com/untemps/vocal/compare/v2.3.0...v2.3.1) (2026-07-04)
+
+
+### Bug Fixes
+
+* Clean up Gladia close timer and keep abort reachable during start ([#138](https://github.com/untemps/vocal/issues/138)) ([f4c8be4](https://github.com/untemps/vocal/commit/f4c8be443355dc5a07dd215ef82fd0f30256ec10))
+
 # [2.3.0](https://github.com/untemps/vocal/compare/v2.2.0...v2.3.0) (2026-07-04)
 
 
