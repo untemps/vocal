@@ -1,3 +1,10 @@
+## [2.3.3](https://github.com/untemps/vocal/compare/v2.3.2...v2.3.3) (2026-07-04)
+
+
+### Bug Fixes
+
+* Pass an abort signal to start() so aborting cancels the handshake promptly ([#140](https://github.com/untemps/vocal/issues/140)) ([a919ae9](https://github.com/untemps/vocal/commit/a919ae9a8a91046b36b848ab71d249159e98d9ab))
+
 ## [2.3.2](https://github.com/untemps/vocal/compare/v2.3.1...v2.3.2) (2026-07-04)
 
 
