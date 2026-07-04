@@ -33,6 +33,9 @@ const $btnClearLog 		= document.getElementById('btn-clear-log') as HTMLButtonEle
 let vocal: VocalInstance | null = null
 let engineFactory: SpeechEngineFactory | null = null
 let started = false
+// True while start() is in flight (mic acquisition + cloud handshake), before the 'start' event.
+// Cloud engines make this window multi-second, so abort() must stay reachable to cancel it.
+let starting = false
 
 const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}
 
@@ -130,9 +133,9 @@ function updateStatus() {
 		setBadge($recording, false)
 	}
 
-	$btnStart.disabled   = !vocal || started || needsMissingKey()
+	$btnStart.disabled   = !vocal || started || starting || needsMissingKey()
 	$btnStop.disabled    = !vocal || !vocal.isRecording
-	$btnAbort.disabled   = !vocal || !started
+	$btnAbort.disabled   = !vocal || (!started && !starting)
 	$btnCleanup.disabled = !vocal
 }
 
@@ -175,6 +178,7 @@ function initVocal() {
 		vocal = null
 	}
 	started = false
+	starting = false
 
 	engineFactory = currentEngineFactory()
 	const supported = isCurrentSupported()
@@ -253,10 +257,14 @@ $optEngine.addEventListener('change', () => {
 
 $btnStart.addEventListener('click', async () => {
 	if (!vocal) return
+	starting = true
+	updateStatus()
 	try {
 		await vocal.start()
 	} catch (e) {
 		log('error', String(e))
+	} finally {
+		starting = false
 	}
 	updateStatus()
 })
