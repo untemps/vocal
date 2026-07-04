@@ -29,6 +29,14 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 			let workletNode: AudioWorkletNode | null = null
 			let source: MediaStreamAudioSourceNode | null = null
 			let closed = false
+			let closeTimer: ReturnType<typeof setTimeout> | null = null
+
+			const clearCloseTimer = (): void => {
+				if (closeTimer !== null) {
+					clearTimeout(closeTimer)
+					closeTimer = null
+				}
+			}
 
 			const releaseAudio = (): void => {
 				workletNode?.disconnect()
@@ -128,6 +136,7 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 						}
 						if (closed) return
 						closed = true
+						clearCloseTimer()
 						releaseAudio()
 						end({ flush: true })
 					}
@@ -140,11 +149,12 @@ export const createGladiaEngine = ({ apiKey }: GladiaConfig): SpeechEngineFactor
 							socket.send(JSON.stringify({ type: 'stop_recording' }))
 						}
 						releaseAudio()
-						setTimeout(() => socket.close(), STOP_GRACE_MS)
+						closeTimer = setTimeout(() => socket.close(), STOP_GRACE_MS)
 					},
 					abort() {
 						if (closed) return
 						closed = true
+						clearCloseTimer()
 						socket.onclose = null
 						socket.close()
 						releaseAudio()
