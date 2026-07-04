@@ -1,3 +1,10 @@
+# [2.3.0](https://github.com/untemps/vocal/compare/v2.2.0...v2.3.0) (2026-07-04)
+
+
+### Features
+
+* Introduce a pluggable SpeechEngine abstraction to support backends beyond the Web Speech API ([#135](https://github.com/untemps/vocal/issues/135)) ([24c883d](https://github.com/untemps/vocal/commit/24c883d2abf09329aca851de3474411fbe119063))
+
 # [2.2.0](https://github.com/untemps/vocal/compare/v2.1.0...v2.2.0) (2026-06-18)
 
 
