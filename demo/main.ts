@@ -37,6 +37,7 @@ let started = false
 // Cloud engines make this window multi-second, so abort() must stay reachable to cancel it.
 let starting = false
 let startEpoch = 0
+let startAbort: AbortController | null = null
 
 const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}
 
@@ -261,13 +262,17 @@ $btnStart.addEventListener('click', async () => {
 	if (!vocal) return
 	const myEpoch = ++startEpoch
 	starting = true
+	startAbort = new AbortController()
 	updateStatus()
 	try {
-		await vocal.start()
+		await vocal.start({ signal: startAbort.signal })
 	} catch (e) {
 		log('error', String(e))
 	} finally {
-		if (myEpoch === startEpoch) starting = false
+		if (myEpoch === startEpoch) {
+			starting = false
+			startAbort = null
+		}
 	}
 	updateStatus()
 })
@@ -278,6 +283,7 @@ $btnStop.addEventListener('click', () => {
 })
 
 $btnAbort.addEventListener('click', () => {
+	startAbort?.abort()
 	vocal?.abort()
 	updateStatus()
 })
