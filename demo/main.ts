@@ -1,4 +1,6 @@
-import { createVocal, isSupported as isVocalSupported, type VocalInstance } from '../src/index'
+import { createVocal, isSupported as isVocalSupported, type SpeechEngineFactory, type VocalInstance } from '../src/index'
+import { createGladiaEngine } from './gladiaEngine'
+import { createOpenAIRealtimeEngine } from './openaiRealtimeEngine'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
@@ -14,6 +16,10 @@ const $optLang       = document.getElementById('opt-lang') as HTMLInputElement
 const $optMaxAlt     = document.getElementById('opt-maxalt') as HTMLInputElement
 const $optContinuous = document.getElementById('opt-continuous') as HTMLInputElement
 const $optInterim    = document.getElementById('opt-interim') as HTMLInputElement
+const $optEngine     = document.getElementById('opt-engine') as HTMLSelectElement
+const $optApiKey     = document.getElementById('opt-api-key') as HTMLInputElement
+const $apiKeyField   = document.getElementById('api-key-field') as HTMLElement
+const $apiKeyNote    = document.getElementById('api-key-note') as HTMLElement
 
 const $btnStart   		= document.getElementById('btn-start') as HTMLButtonElement
 const $btnStop    		= document.getElementById('btn-stop') as HTMLButtonElement
@@ -24,8 +30,11 @@ const $btnClearLog 		= document.getElementById('btn-clear-log') as HTMLButtonEle
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
-const isSupported = isVocalSupported()
 let vocal: VocalInstance | null = null
+let engineFactory: SpeechEngineFactory | null = null
+let started = false
+
+const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -74,8 +83,45 @@ function setAlternatives(alts: string[], label = 'Alternatives') {
 	$alternatives.appendChild(ul)
 }
 
+// ── Engine selection ────────────────────────────────────────────────────────────
+
+function apiKey(): string {
+	return $optApiKey.value.trim()
+}
+
+function isCloudEngine(): boolean {
+	return $optEngine.value === 'gladia' || $optEngine.value === 'openai'
+}
+
+function envKeyFor(engine: string): string {
+	if (engine === 'gladia') return env.VITE_GLADIA_API_KEY ?? ''
+	if (engine === 'openai') return env.VITE_OPENAI_API_KEY ?? ''
+	return ''
+}
+
+function currentEngineFactory(): SpeechEngineFactory | null {
+	if ($optEngine.value === 'gladia') return createGladiaEngine({ apiKey: apiKey() })
+	if ($optEngine.value === 'openai') return createOpenAIRealtimeEngine({ apiKey: apiKey() })
+	return null
+}
+
+function isCurrentSupported(): boolean {
+	return engineFactory ? isVocalSupported(engineFactory) : isVocalSupported()
+}
+
+function needsMissingKey(): boolean {
+	return isCloudEngine() && !apiKey()
+}
+
+function syncEngineUI() {
+	const cloud = isCloudEngine()
+	$apiKeyField.style.display = cloud ? '' : 'none'
+	$apiKeyNote.style.display = cloud ? '' : 'none'
+	$optMaxAlt.disabled = cloud
+}
+
 function updateStatus() {
-	setBadge($supported, isSupported)
+	setBadge($supported, isCurrentSupported())
 
 	if (vocal) {
 		const recording = vocal.isRecording
@@ -84,9 +130,9 @@ function updateStatus() {
 		setBadge($recording, false)
 	}
 
-	$btnStart.disabled   = !vocal || vocal.isRecording
+	$btnStart.disabled   = !vocal || started || needsMissingKey()
 	$btnStop.disabled    = !vocal || !vocal.isRecording
-	$btnAbort.disabled   = !vocal || !vocal.isRecording
+	$btnAbort.disabled   = !vocal || !started
 	$btnCleanup.disabled = !vocal
 }
 
@@ -128,9 +174,18 @@ function initVocal() {
 		vocal.cleanup()
 		vocal = null
 	}
+	started = false
+
+	engineFactory = currentEngineFactory()
+	const supported = isCurrentSupported()
+	$banner.style.display = supported ? 'none' : 'block'
+	if (!supported) {
+		updateStatus()
+		return
+	}
 
 	const options = buildOptions()
-	vocal = createVocal(options)
+	vocal = createVocal(engineFactory ? { ...options, engine: engineFactory } : options)
 
 	vocal.on('result', (_, best, alts) => {
 		$transcript.textContent = best
@@ -140,7 +195,7 @@ function initVocal() {
 	})
 
 	vocal.on('error', (event) => {
-		log('error', event.error ?? String(event))
+		log('error', [event.error, event.message].filter(Boolean).join(': ') || String(event))
 		updateStatus()
 	})
 
@@ -151,12 +206,12 @@ function initVocal() {
 	})
 
 	vocal.on('nomatch',     logEvent('nomatch'))
-	vocal.on('start', logEvent('start'))
-	vocal.on('end',   logEvent('end'))
+	vocal.on('start', () => { started = true; log('start'); updateStatus() })
+	vocal.on('end',   () => { started = false; log('end'); updateStatus() })
 	vocal.on('speechstart', logEvent('speechstart'))
 	vocal.on('speechend',   logEvent('speechend'))
 
-	log('init', JSON.stringify(options))
+	log('init', JSON.stringify({ engine: $optEngine.value, ...options }))
 	updateStatus()
 }
 
@@ -172,14 +227,9 @@ window.addEventListener('resize', syncCollapsible)
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-if (!isSupported) {
-	$banner.style.display = 'block'
-	;[$btnStart, $btnStop, $btnAbort, $btnCleanup, $btnResetOptions].forEach(
-		(b) => (b.disabled = true)
-	)
-} else {
-	initVocal()
-}
+$optApiKey.value = envKeyFor($optEngine.value)
+syncEngineUI()
+initVocal()
 
 // ── Bindings ──────────────────────────────────────────────────────────────────
 
@@ -188,12 +238,18 @@ $btnResetOptions.addEventListener('click', () => {
 	vocal?.cleanup()
 	vocal = null
 	log('Reset Options')
-	initVocal()	
+	initVocal()
 })
 
-;[$optLang, $optMaxAlt, $optContinuous, $optInterim].forEach((el) =>
+;[$optLang, $optMaxAlt, $optContinuous, $optInterim, $optApiKey].forEach((el) =>
 	el.addEventListener('change', initVocal)
 )
+
+$optEngine.addEventListener('change', () => {
+	$optApiKey.value = envKeyFor($optEngine.value)
+	syncEngineUI()
+	initVocal()
+})
 
 $btnStart.addEventListener('click', async () => {
 	if (!vocal) return

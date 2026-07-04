@@ -1,4 +1,5 @@
 import { createVocal, isSupported, eventTypes, type VocalInstance } from '../Vocal'
+import type { SpeechEngineContext, SpeechEngineFactory, SpeechEngineInstance } from '../types'
 import * as userPermissionsUtils from '@untemps/user-permissions-utils'
 
 type MockFn = {
@@ -250,6 +251,29 @@ describe('Vocal', () => {
 			expect(vocal.isRecording).toBe(false)
 		})
 
+		it.each([
+			['stop', (v: VocalInstance) => v.stop()],
+			['abort', (v: VocalInstance) => v.abort()],
+		] as const)(
+			'does not start recognition when %s runs while getUserMediaStream is pending',
+			async (_, action) => {
+				let resolveStream!: (stream: MediaStream) => void
+				vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockImplementationOnce(
+					() =>
+						new Promise<MediaStream>((resolve) => {
+							resolveStream = resolve
+						})
+				)
+				const { vocal, instance } = setup()
+				const startPromise = vocal.start()
+				action(vocal)
+				resolveStream(mockStream)
+				await expect(startPromise).resolves.toBeUndefined()
+				expect(instance.start).not.toHaveBeenCalled()
+				expect(vocal.isRecording).toBe(false)
+			}
+		)
+
 		it('does not start recognition when cleanup runs while getUserMediaStream is pending', async () => {
 			let resolveStream!: (stream: MediaStream) => void
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockImplementationOnce(
@@ -330,6 +354,20 @@ describe('Vocal', () => {
 			expect(onPermission).toHaveBeenCalledTimes(2)
 			expect(onPermission).toHaveBeenNthCalledWith(1, expect.any(Event), 'prompt')
 			expect(onPermission).toHaveBeenNthCalledWith(2, expect.any(Event), 'denied')
+		})
+
+		it('isolates an exception thrown by a permission handler during the immediate replay', () => {
+			grantOnWatch('granted')
+			const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+			const { vocal } = setup()
+			vocal.on(eventTypes.PERMISSION, vi.fn())
+			const thrower = vi.fn(() => {
+				throw new Error('handler boom')
+			})
+			expect(() => vocal.on(eventTypes.PERMISSION, thrower)).not.toThrow()
+			expect(thrower).toHaveBeenCalledWith(expect.any(Event), 'granted')
+			expect(consoleError).toHaveBeenCalled()
+			consoleError.mockRestore()
 		})
 
 		it('continues to emit transitions during an active session', async () => {
@@ -597,7 +635,7 @@ describe('Vocal', () => {
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'second utterance', ['second utterance'])
 		})
 
-		it('does not pass transcript when resultIndex is out of bounds', () => {
+		it('emits a safe empty result shape when resultIndex is out of bounds', () => {
 			const onResult = vi.fn()
 			const { vocal, instance } = setup()
 			vocal.on(eventTypes.RESULT, onResult)
@@ -609,11 +647,10 @@ describe('Vocal', () => {
 				results: [[{ transcript: 'hello', confidence: 0.9 }]],
 			})
 			;(handler as unknown as (e: Event) => void)(event)
-			expect(onResult).toHaveBeenCalledTimes(1)
-			expect(onResult.mock.calls[0]).toHaveLength(1)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), '', [])
 		})
 
-		it('does not pass transcript for RESULT events with empty results', () => {
+		it('emits a safe empty result shape for RESULT events with empty results', () => {
 			const onResult = vi.fn()
 			const { vocal, instance } = setup()
 			vocal.on(eventTypes.RESULT, onResult)
@@ -622,8 +659,7 @@ describe('Vocal', () => {
 			)!
 			const event = Object.assign(new Event(eventTypes.RESULT), { results: [] })
 			;(handler as unknown as (e: Event) => void)(event)
-			expect(onResult).toHaveBeenCalledTimes(1)
-			expect(onResult.mock.calls[0]).toHaveLength(1)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), '', [])
 		})
 
 		it('stacks multiple listeners for the same event type', () => {
@@ -662,11 +698,13 @@ describe('Vocal', () => {
 	})
 
 	describe('off', () => {
-		it('calls removeEventListener on the underlying instance', () => {
+		it('stops forwarding events once all listeners for a type are removed', () => {
+			const onStart = vi.fn()
 			const { vocal, instance } = setup()
-			vocal.on(eventTypes.START, vi.fn())
+			vocal.on(eventTypes.START, onStart)
 			vocal.off(eventTypes.START)
-			expect(instance.removeEventListener).toHaveBeenCalled()
+			instance.start()
+			expect(onStart).not.toHaveBeenCalled()
 		})
 
 		it('does nothing once cleaned up', () => {
@@ -707,6 +745,12 @@ describe('Vocal', () => {
 			;(instance.addEventListener.mock.calls as [string, EventListener][])
 				.filter(([type]) => type === 'error')
 				.forEach(([, handler]) => handler(Object.assign(new Event('error'), { error }) as unknown as Event))
+		}
+
+		const fireStart = (instance: MockInstance) => {
+			;(instance.addEventListener.mock.calls as [string, EventListener][])
+				.filter(([type]) => type === 'start')
+				.forEach(([, handler]) => handler(new Event('start')))
 		}
 
 		beforeEach(() => {
@@ -818,6 +862,49 @@ describe('Vocal', () => {
 			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
 		})
 
+		it('does not restart when a stray end lands while a start is in flight', async () => {
+			let resolveStream!: (stream: MediaStream) => void
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockImplementationOnce(
+				() =>
+					new Promise<MediaStream>((resolve) => {
+						resolveStream = resolve
+					})
+			)
+			const { vocal, instance } = setup({ continuous: true })
+			const startCallsBefore = (instance.start as MockFn).mock.calls.length
+
+			const startPromise = vocal.start()
+			fireEnd(instance)
+			resolveStream(mockStream)
+			await startPromise
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(startCallsBefore + 1)
+			expect(vocal.isRecording).toBe(true)
+		})
+
+		it('discards the buffer and emits end when abort interrupts a scheduled restart', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			const onEnd = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+			vocal.on(eventTypes.END, onEnd)
+
+			instance.say('hello')
+			fireEnd(instance)
+			;(instance.abort as unknown as { mockImplementationOnce: (fn: () => void) => void }).mockImplementationOnce(
+				() => {}
+			)
+			vocal.abort()
+
+			expect(onResult).not.toHaveBeenCalled()
+			expect(onEnd).toHaveBeenCalledTimes(1)
+			expect(vocal.isRecording).toBe(false)
+		})
+
 		it('disables auto-restart on not-allowed error', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const { vocal, instance } = setup({ continuous: true })
@@ -896,6 +983,25 @@ describe('Vocal', () => {
 			expect(onEnd).toHaveBeenCalledTimes(1)
 		})
 
+		it('does not emit start after an explicit stop interrupts a scheduled restart', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+
+			const onStart = vi.fn()
+			vocal.on(eventTypes.START, onStart)
+			;(instance.start as unknown as { mockImplementationOnce: (fn: () => void) => void }).mockImplementationOnce(
+				() => {}
+			)
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(1000)
+
+			vocal.stop()
+			fireStart(instance)
+
+			expect(onStart).not.toHaveBeenCalled()
+		})
+
 		it('keeps isRecording true during the restart window', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const { vocal, instance } = setup({ continuous: true })
@@ -921,11 +1027,17 @@ describe('Vocal', () => {
 			expect((instance.start as MockFn).mock.calls.length).toBe(initialStartCalls)
 		})
 
-		it('resets isRecording when the engine throws on restart', async () => {
+		it('emits a synthetic end and flushes buffered results when the engine throws on restart', async () => {
 			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
 			const { vocal, instance } = setup({ continuous: true })
 			await vocal.start()
 
+			const onEnd = vi.fn()
+			const onResult = vi.fn()
+			vocal.on(eventTypes.END, onEnd)
+			vocal.on(eventTypes.RESULT, onResult)
+
+			instance.say('buffered')
 			fireEnd(instance)
 			;(instance.start as unknown as { mockImplementationOnce: (fn: () => void) => void }).mockImplementationOnce(
 				() => {
@@ -936,6 +1048,48 @@ describe('Vocal', () => {
 			await vi.advanceTimersByTimeAsync(1000)
 
 			expect(vocal.isRecording).toBe(false)
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'buffered', ['buffered'])
+			expect(onEnd).toHaveBeenCalledTimes(1)
+		})
+
+		it('does not re-arm auto-restart after the engine throws on restart', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+			;(instance.start as unknown as { mockImplementationOnce: (fn: () => void) => void }).mockImplementationOnce(
+				() => {
+					throw new Error('InvalidStateError')
+				}
+			)
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(1000)
+			const startCallsAfterThrow = (instance.start as MockFn).mock.calls.length
+
+			fireEnd(instance)
+			await vi.advanceTimersByTimeAsync(1000)
+
+			expect((instance.start as MockFn).mock.calls.length).toBe(startCallsAfterThrow)
+		})
+
+		it('flushes buffered results and emits end when stop interrupts a scheduled restart', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			const onEnd = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+			vocal.on(eventTypes.END, onEnd)
+
+			instance.say('hello')
+			fireEnd(instance)
+			;(instance.stop as unknown as { mockImplementationOnce: (fn: () => void) => void }).mockImplementationOnce(
+				() => {}
+			)
+			vocal.stop()
+
+			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello', ['hello'])
+			expect(onEnd).toHaveBeenCalledTimes(1)
 		})
 	})
 
@@ -957,6 +1111,20 @@ describe('Vocal', () => {
 
 			expect(onResult).toHaveBeenCalledTimes(1)
 			expect(onResult).toHaveBeenCalledWith(expect.any(Event), 'hello world', ['hello world'])
+		})
+
+		it('does not emit an aggregated result when the buffered finals are blank', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+
+			const onResult = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+
+			instance.say(' ', undefined, { isFinal: true })
+			vocal.stop()
+
+			expect(onResult).not.toHaveBeenCalled()
 		})
 
 		it('still propagates interim results to user listeners in continuous mode', async () => {
@@ -1270,21 +1438,189 @@ describe('Vocal', () => {
 			expect(instance.stop).toHaveBeenCalled()
 		})
 
-		it('removes all registered listeners', () => {
+		it('stops forwarding events to user listeners after cleanup', () => {
+			const onStart = vi.fn()
+			const onEnd = vi.fn()
 			const { vocal, instance } = setup()
-			vocal.on(eventTypes.START, vi.fn())
-			vocal.on(eventTypes.END, vi.fn())
+			vocal.on(eventTypes.START, onStart)
+			vocal.on(eventTypes.END, onEnd)
 			vocal.cleanup()
-			expect(instance.removeEventListener).toHaveBeenCalledTimes(6)
+			instance.start()
+			instance.stop()
+			expect(onStart).not.toHaveBeenCalled()
+			expect(onEnd).not.toHaveBeenCalled()
 		})
 
-		it('removes the internal end, start, error and result listeners on cleanup', () => {
+		it('does not flush a buffered result or trailing end to listeners during cleanup', async () => {
+			vi.spyOn(userPermissionsUtils, 'getUserMediaStream').mockResolvedValueOnce(mockStream)
+			const { vocal, instance } = setup({ continuous: true })
+			await vocal.start()
+			const onResult = vi.fn()
+			const onEnd = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+			vocal.on(eventTypes.END, onEnd)
+			instance.say('buffered')
+			vocal.cleanup()
+			expect(onResult).not.toHaveBeenCalled()
+			expect(onEnd).not.toHaveBeenCalled()
+		})
+
+		it('removes every native listener from the instance on cleanup', () => {
 			const { vocal, instance } = setup()
 			vocal.cleanup()
-			expect(instance.removeEventListener).toHaveBeenCalledWith('end', expect.any(Function))
-			expect(instance.removeEventListener).toHaveBeenCalledWith('start', expect.any(Function))
-			expect(instance.removeEventListener).toHaveBeenCalledWith('error', expect.any(Function))
-			expect(instance.removeEventListener).toHaveBeenCalledWith('result', expect.any(Function))
+			const nativeTypes = [
+				'end',
+				'start',
+				'error',
+				'result',
+				'audiostart',
+				'audioend',
+				'soundstart',
+				'soundend',
+				'speechstart',
+				'speechend',
+				'nomatch',
+			]
+			nativeTypes.forEach((type) =>
+				expect(instance.removeEventListener).toHaveBeenCalledWith(type, expect.any(Function))
+			)
+		})
+	})
+
+	describe('custom engine', () => {
+		const createMockEngine = (options: { supported?: boolean } = {}) => {
+			const calls = {
+				start: 0,
+				stop: 0,
+				abort: 0,
+				cleanup: 0,
+			}
+			let recording = false
+			let context: SpeechEngineContext | undefined
+			const factory = ((ctx: SpeechEngineContext): SpeechEngineInstance => {
+				context = ctx
+				return {
+					get isRecording() {
+						return recording
+					},
+					async start() {
+						recording = true
+						calls.start++
+					},
+					stop() {
+						recording = false
+						calls.stop++
+					},
+					abort() {
+						recording = false
+						calls.abort++
+					},
+					cleanup() {
+						recording = false
+						calls.cleanup++
+					},
+				}
+			}) as SpeechEngineFactory
+			factory.isSupported = () => options.supported ?? true
+			return { factory, calls, getContext: () => context! }
+		}
+
+		it('drives the provided engine factory instead of the default', async () => {
+			const { factory, calls } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			await vocal.start()
+			expect(calls.start).toBe(1)
+			expect(vocal.isRecording).toBe(true)
+			vocal.stop()
+			expect(calls.stop).toBe(1)
+			expect(vocal.isRecording).toBe(false)
+		})
+
+		it('passes the resolved options to the engine context', () => {
+			const { factory, getContext } = createMockEngine()
+			createVocal({ engine: factory, lang: 'fr-FR', continuous: true })
+			expect(getContext().options).toEqual({
+				grammars: null,
+				lang: 'fr-FR',
+				continuous: true,
+				interimResults: false,
+				maxAlternatives: 1,
+			})
+		})
+
+		it('fans out the engine emit() to user listeners', () => {
+			const { factory, getContext } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			const onResult = vi.fn()
+			vocal.on(eventTypes.RESULT, onResult)
+			const event = new Event(eventTypes.RESULT) as unknown as SpeechRecognitionEvent
+			getContext().emit(eventTypes.RESULT, event, 'hello', ['hello'])
+			expect(onResult).toHaveBeenCalledWith(event, 'hello', ['hello'])
+		})
+
+		it('keeps notifying listeners when one of them throws', () => {
+			const { factory, getContext } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			const boom = vi.fn(() => {
+				throw new Error('boom')
+			})
+			const after = vi.fn()
+			const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+			vocal.on(eventTypes.RESULT, boom)
+			vocal.on(eventTypes.RESULT, after)
+			const event = new Event(eventTypes.RESULT) as unknown as SpeechRecognitionEvent
+			getContext().emit(eventTypes.RESULT, event, 'hi', ['hi'])
+			expect(boom).toHaveBeenCalled()
+			expect(after).toHaveBeenCalled()
+			expect(errorSpy).toHaveBeenCalledWith(expect.any(Error))
+			errorSpy.mockRestore()
+		})
+
+		it('drives the core permission watch regardless of the engine', () => {
+			vi.spyOn(userPermissionsUtils, 'watchPermission').mockImplementation((_name, onChange) => {
+				onChange('granted')
+				return Promise.resolve()
+			})
+			const { factory } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			const onPermission = vi.fn()
+			vocal.on(eventTypes.PERMISSION, onPermission)
+			expect(onPermission).toHaveBeenCalledWith(expect.any(Event), 'granted')
+		})
+
+		it('delegates abort and cleanup to the engine', () => {
+			const { factory, calls } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			vocal.abort()
+			expect(calls.abort).toBe(1)
+			vocal.cleanup()
+			expect(calls.cleanup).toBe(1)
+		})
+
+		it('ignores start/stop/abort and reports not recording after cleanup', async () => {
+			const { factory, calls } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			vocal.cleanup()
+			await vocal.start()
+			vocal.stop()
+			vocal.abort()
+			expect(calls.start).toBe(0)
+			expect(calls.stop).toBe(0)
+			expect(calls.abort).toBe(0)
+			expect(vocal.isRecording).toBe(false)
+		})
+
+		it('only tears the engine down once across repeated cleanup calls', () => {
+			const { factory, calls } = createMockEngine()
+			const vocal = createVocal({ engine: factory })
+			vocal.cleanup()
+			vocal.cleanup()
+			expect(calls.cleanup).toBe(1)
+		})
+
+		it('reports support through the provided factory', () => {
+			expect(isSupported(createMockEngine({ supported: true }).factory)).toBe(true)
+			expect(isSupported(createMockEngine({ supported: false }).factory)).toBe(false)
 		})
 	})
 })
